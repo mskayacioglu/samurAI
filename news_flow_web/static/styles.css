@@ -20,72 +20,72 @@ body {
   color: var(--text);
   line-height: 1.45;
   background: var(--bg);
-  min-height: 100vh; 
-  padding: 14px;
+  min-height: 100vh;
+  padding: 0;
 }
 
 .app {
-  width: min(1200px, 98vw);
+  width: min(980px, 96vw);
   margin: 0 auto;
+  padding-bottom: 28px;
 }
 
 .sticky-top {
   position: sticky;
   top: 0;
   z-index: 30;
-  padding-top: 2px;
-  padding-bottom: 10px;
-  background: linear-gradient(180deg, rgba(30, 31, 33, 0.97), rgba(30, 31, 33, 0.8));
+  padding-top: 14px;
+  padding-bottom: 12px;
+  background: linear-gradient(180deg, rgba(30, 31, 33, 0.98), rgba(30, 31, 33, 0.9));
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .card {
-  background: linear-gradient(180deg, rgb(42, 43, 47), var(--panel));
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px;
-  margin-top: 10px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  margin-top: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
 }
 
 .hero {
-  padding: 16px;
+  padding: 6px 0 8px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(1.7rem, 2vw, 2.1rem);
-  letter-spacing: 0.01em;
-}
-
-.hero p {
-  margin: 6px 0 0;
-  color: var(--muted);
+  font-size: clamp(1.5rem, 1.8vw, 1.9rem);
+  letter-spacing: 0.02em;
 }
 
 .controls {
   display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto 110px 116px;
-  gap: 12px;
+  grid-template-columns: auto 1fr auto 1fr auto 90px 116px;
+  gap: 10px;
   align-items: center;
 }
 
 .controls label {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--muted);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  font-size: 0.9rem;
 }
 
 .controls select,
 .controls input,
 .controls button {
-  height: 40px;
+  height: 38px;
   border-radius: 10px;
   border: 1px solid var(--border);
   padding: 0 11px;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-family: inherit;
 }
 
@@ -98,7 +98,7 @@ body {
 .controls button {
   justify-self: center;
   width: 100%;
-  border: 1px solid rgba(48, 106, 248, 0.45);
+  border: 1px solid rgba(48, 106, 248, 0.35);
   background: linear-gradient(180deg, rgb(59, 118, 255), var(--blue));
   color: rgb(255, 255, 255);
   font-weight: 700;
@@ -116,15 +116,15 @@ body {
 }
 
 main {
-  margin: 0 auto 28px;
+  margin: 12px auto 0;
 }
 
 .status {
-  margin: 10px 0 14px;
+  margin: 0 0 12px;
   color: var(--muted);
-  text-align: center;
-  font-size: 0.98rem;
-  font-style: italic;
+  text-align: left;
+  font-size: 0.92rem;
+  font-style: normal;
 }
 
 .status.error {
@@ -138,11 +138,11 @@ main {
 }
 
 .news-card {
-  background: linear-gradient(180deg, rgb(42, 43, 47), var(--panel));
+  background: linear-gradient(180deg, rgb(41, 42, 46), rgb(37, 38, 41));
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.27);
-  padding: 15px 16px;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.23);
+  padding: 14px 16px 15px;
 }
 
 .meta {
@@ -154,8 +154,8 @@ main {
 }
 
 .title {
-  margin: 8px 0 9px;
-  font-size: 1.42rem;
+  margin: 7px 0 9px;
+  font-size: 1.34rem;
   line-height: 1.2;
   font-weight: 700;
   font-family: "Times New Roman", Times, Georgia, serif;
@@ -200,6 +200,6 @@ main {
   }
 
   .title {
-    font-size: 1.26rem;
+    font-size: 1.2rem;
   }
 }
