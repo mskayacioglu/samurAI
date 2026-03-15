@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>News Summary Flow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="sticky-top">
+        <header class="hero card">
+          <h1>News Summary Flow</h1>
+          <p>Summaries generated from your local models</p>
+        </header>
+
+        <section class="controls card">
+          <label for="source">Source</label>
+          <select id="source">
+            <option value="">All Sources</option>
+            {% for key, source in sources.items() %}
+            <option value="{{ key }}">{{ source.name }}</option>
+            {% endfor %}
+          </select>
+
+          <label for="model">Model</label>
+          <select id="model">
+            {% for key, _ in models.items() %}
+            <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
+              {{ key }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <label for="limit">Per Source</label>
+          <input id="limit" type="number" value="5" min="1" max="15" />
+          <button id="refreshBtn">Refresh</button>
+        </section>
+      </div>
+
+      <main>
+        <div id="status" class="status card"></div>
+        <div id="feed" class="feed"></div>
+      </main>
+    </div>
+
+    <template id="cardTemplate">
+      <article class="news-card">
+        <div class="meta">
+          <span class="source"></span>
+          <time class="time"></time>
+        </div>
+        <h2 class="title"></h2>
+        <p class="summary"></p>
+        <a class="source-link" target="_blank" rel="noopener noreferrer">Open Original</a>
+      </article>
+    </template>
+
+    <script>
+      const sourceEl = document.getElementById("source");
+      const modelEl = document.getElementById("model");
+      const limitEl = document.getElementById("limit");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const feedEl = document.getElementById("feed");
+      const statusEl = document.getElementById("status");
+      const cardTpl = document.getElementById("cardTemplate");
+
+      function fmtDate(iso) {
+        if (!iso) return "Unknown time";
+        try {
+          return new Date(iso).toLocaleString();
+        } catch {
+          return iso;
+        }
+      }
+
+      function setStatus(text, isError = false) {
+        statusEl.textContent = text;
+        statusEl.className = isError ? "status card error" : "status card";
+      }
+
+      async function loadNews() {
+        const params = new URLSearchParams({
+          source: sourceEl.value,
+          model: modelEl.value,
+          limit: limitEl.value,
+        });
+        setStatus("Loading news...");
+        feedEl.innerHTML = "";
+
+        try {
+          const response = await fetch(`/api/news?${params.toString()}`);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to load data");
+          }
+
+          setStatus(`Loaded ${data.count} items with model: ${data.model}`);
+          data.items.forEach((item) => {
+            const node = cardTpl.content.cloneNode(true);
+            node.querySelector(".source").textContent = item.source_name;
+            node.querySelector(".time").textContent = fmtDate(item.published_at);
+            node.querySelector(".title").textContent = item.title;
+            node.querySelector(".summary").textContent = item.summary;
+
+            const link = node.querySelector(".source-link");
+            link.href = item.link;
+            link.textContent = "Open Source Article";
+            feedEl.appendChild(node);
+          });
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      }
+
+      refreshBtn.addEventListener("click", loadNews);
+      window.addEventListener("load", loadNews);
+    </script>
+  </body>
+</html>
