@@ -50,6 +50,22 @@ NEWS_SOURCES = {
         "name": "Al Jazeera",
         "rss_url": "https://www.aljazeera.com/xml/rss/all.xml",
     },
+    "cnn_world": {
+        "name": "CNN World",
+        "rss_url": "http://rss.cnn.com/rss/edition_world.rss",
+    },
+    "reuters_world": {
+        "name": "Reuters World",
+        "rss_url": "https://feeds.reuters.com/Reuters/worldNews",
+    },
+    "npr_world": {
+        "name": "NPR World",
+        "rss_url": "https://feeds.npr.org/1004/rss.xml",
+    },
+    "dw_world": {
+        "name": "DW World",
+        "rss_url": "https://rss.dw.com/xml/rss-en-world",
+    },
 }
 
 

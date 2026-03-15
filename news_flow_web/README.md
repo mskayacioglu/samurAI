@@ -39,7 +39,7 @@ Desteklenen model anahtarları:
 `GET /api/news`
 
 Sorgu parametreleri:
-- `source`: `bbc_world`, `guardian_world`, `aljazeera_all` veya boş (hepsi)
+- `source`: `bbc_world`, `guardian_world`, `aljazeera_all`, `cnn_world`, `reuters_world`, `npr_world`, `dw_world` veya boş (hepsi)
 - `model`: model anahtarı
 - `limit`: kaynak başına haber adedi (1-15)
 - `include_raw`: `true|false`
