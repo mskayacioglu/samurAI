@@ -3,8 +3,9 @@ import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
+from html import unescape
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
 from flask import Flask, jsonify, render_template, request
@@ -32,6 +33,9 @@ MODEL_PATHS = {
 DEFAULT_MODEL_KEY = os.getenv("MODEL_KEY", "bart_large_cnn")
 MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS", "3500"))
 DEFAULT_SUMMARY_TOKENS = int(os.getenv("SUMMARY_MAX_TOKENS", "96"))
+ARTICLE_FETCH_TIMEOUT = int(os.getenv("ARTICLE_FETCH_TIMEOUT", "8"))
+MAX_ARTICLE_CHARS = int(os.getenv("MAX_ARTICLE_CHARS", "12000"))
+MIN_ARTICLE_CHARS = int(os.getenv("MIN_ARTICLE_CHARS", "500"))
 
 NEWS_SOURCES = {
     "bbc_world": {
@@ -54,6 +58,84 @@ def strip_html(text: str) -> str:
         return ""
     clean = re.sub(r"<[^>]+>", " ", text)
     return re.sub(r"\s+", " ", clean).strip()
+
+
+def _sanitize_html_fragment(text: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    text = unescape(text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def extract_article_text(html_text: str) -> str:
+    if not html_text:
+        return ""
+
+    cleaned = re.sub(
+        r"(?is)<(script|style|noscript|svg|template|iframe|form|nav|footer)[^>]*>.*?</\1>",
+        " ",
+        html_text,
+    )
+
+    candidates = []
+    for block in re.findall(r"(?is)<article\b[^>]*>(.*?)</article>", cleaned):
+        block_paragraphs = [
+            _sanitize_html_fragment(p)
+            for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", block)
+        ]
+        block_paragraphs = [p for p in block_paragraphs if len(p) >= 50]
+        if block_paragraphs:
+            candidates.append(" ".join(block_paragraphs))
+
+    if candidates:
+        best = max(candidates, key=len)
+        if len(best) >= MIN_ARTICLE_CHARS:
+            return best[:MAX_ARTICLE_CHARS]
+
+    paragraphs = [
+        _sanitize_html_fragment(p) for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", cleaned)
+    ]
+    filtered = []
+    for p in paragraphs:
+        if len(p) < 60:
+            continue
+        low = p.lower()
+        if "cookie" in low and "consent" in low:
+            continue
+        if "subscribe" in low and "newsletter" in low:
+            continue
+        filtered.append(p)
+
+    if filtered:
+        combined = " ".join(filtered)
+        return combined[:MAX_ARTICLE_CHARS]
+    return ""
+
+
+@lru_cache(maxsize=256)
+def fetch_article_text(url: str) -> str:
+    if not url:
+        return ""
+    try:
+        req = Request(
+            url,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                )
+            },
+        )
+        with urlopen(req, timeout=ARTICLE_FETCH_TIMEOUT) as response:
+            content_type = (response.headers.get("Content-Type") or "").lower()
+            if "text/html" not in content_type:
+                return ""
+            html_bytes = response.read(MAX_ARTICLE_CHARS * 3)
+    except Exception:
+        return ""
+
+    html_text = html_bytes.decode("utf-8", errors="ignore")
+    return extract_article_text(html_text)
 
 
 def extractive_fallback(text: str, max_chars: int = 280) -> str:
@@ -288,7 +370,13 @@ def api_news():
     entries = gather_news(limit_per_source=max(1, min(limit, 15)), source_filter=source)
     result = []
     for item in entries:
-        text_for_summary = f"{item['title']}. {item['description']}".strip()
+        article_text = fetch_article_text(item["link"])
+        if article_text:
+            text_for_summary = f"{item['title']}. {article_text}".strip()
+            summary_input_type = "article"
+        else:
+            text_for_summary = f"{item['title']}. {item['description']}".strip()
+            summary_input_type = "rss"
         summary = summarize_text(text_for_summary, model_key)
         result.append(
             {
@@ -300,6 +388,7 @@ def api_news():
                 "published_at": (
                     item["published_at"].isoformat() if item["published_at"] else None
                 ),
+                "summary_input_type": summary_input_type,
                 "raw_text": text_for_summary if include_raw else None,
             }
         )

@@ -1,6 +1,6 @@
 # News Summary Flow
 
-Bu uygulama, belirlediğiniz RSS haber kaynaklarından güncel haber başlık/açıklamalarını çeker, yerel özetleme modelinizle özetler ve kaynak linkleriyle bir akış ekranında gösterir.
+Bu uygulama, belirlediğiniz RSS haber kaynaklarından güncel haberleri çeker, mümkünse kaynak linkindeki tam haber metnini indirir, yerel özetleme modelinizle özetler ve kaynak linkleriyle bir akış ekranında gösterir. Kaynak sayfadan metin çıkarılamazsa RSS açıklamasına geri düşer.
 
 ## Kurulum
 
@@ -43,6 +43,10 @@ Sorgu parametreleri:
 - `model`: model anahtarı
 - `limit`: kaynak başına haber adedi (1-15)
 - `include_raw`: `true|false`
+
+Yanıtta her haber için `summary_input_type` alanı bulunur:
+- `article`: özet, kaynak sayfadan çıkarılan metinle üretildi
+- `rss`: kaynak metin çekilemedi, RSS başlık/açıklama ile üretildi
 
 Örnek:
 
