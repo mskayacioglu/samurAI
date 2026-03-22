@@ -11,6 +11,16 @@ from xml.etree import ElementTree as ET
 from flask import Flask, jsonify, render_template, request
 
 try:
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    import trafilatura
+except ImportError:
+    trafilatura = None
+
+try:
     import torch
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 except ImportError:
@@ -377,29 +387,65 @@ def extract_article_text(html_text: str) -> str:
 def fetch_article_text(url: str) -> str:
     if not url:
         return ""
-    try:
-        req = Request(
-            url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                ),
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Accept-Encoding": "identity",
-            },
-        )
-        with urlopen(req, timeout=ARTICLE_FETCH_TIMEOUT) as response:
-            content_type = (response.headers.get("Content-Type") or "").lower()
-            if "text/html" not in content_type:
-                return ""
-            html_bytes = response.read(MAX_ARTICLE_CHARS * 3)
-    except Exception:
-        return ""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
 
-    html_text = html_bytes.decode("utf-8", errors="ignore")
-    return extract_article_text(html_text)
+    html_text = ""
+    if requests is not None:
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=ARTICLE_FETCH_TIMEOUT,
+                allow_redirects=True,
+            )
+            content_type = (response.headers.get("Content-Type") or "").lower()
+            if response.ok and (
+                "text/html" in content_type or "application/xhtml+xml" in content_type
+            ):
+                html_text = response.text[: MAX_ARTICLE_CHARS * 3]
+        except Exception:
+            html_text = ""
+
+    if not html_text:
+        try:
+            req = Request(url, headers=headers)
+            with urlopen(req, timeout=ARTICLE_FETCH_TIMEOUT) as response:
+                content_type = (response.headers.get("Content-Type") or "").lower()
+                if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
+                    return ""
+                html_bytes = response.read(MAX_ARTICLE_CHARS * 3)
+                html_text = html_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            html_text = ""
+
+    extracted = extract_article_text(html_text) if html_text else ""
+    if extracted:
+        return extracted
+
+    # Robust fallback extractor for JS-heavy/complex templates.
+    if trafilatura is not None:
+        try:
+            downloaded = trafilatura.fetch_url(url)
+            if downloaded:
+                text = trafilatura.extract(
+                    downloaded,
+                    include_comments=False,
+                    include_tables=False,
+                    favor_recall=True,
+                )
+                text = normalize_text(text or "")
+                if len(text) >= 140:
+                    return text[:MAX_ARTICLE_CHARS]
+        except Exception:
+            return ""
+    return ""
 
 
 def extractive_fallback(text: str, max_chars: int = 280) -> str:
@@ -696,19 +742,20 @@ def api_news():
     )
     result = []
     source_type_counts = {"article": 0, "rss": 0}
+    skipped_due_to_missing_article = 0
     for item in entries:
         article_text = fetch_article_text(item["link"])
-        if article_text:
-            text_for_summary = f"{item['title']}. {article_text}".strip()
-            summary_input_type = "article"
-        else:
-            text_for_summary = f"{item['title']}. {item['description']}".strip()
-            summary_input_type = "rss"
+        if not article_text:
+            skipped_due_to_missing_article += 1
             app.logger.info(
-                "article_fetch_fallback source=%s link=%s",
+                "article_fetch_skip source=%s link=%s",
                 item["source_name"],
                 item["link"][:180],
             )
+            continue
+
+        text_for_summary = f"{item['title']}. {article_text}".strip()
+        summary_input_type = "article"
         summary = summarize_text(text_for_summary, model_key, language)
         source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
         app.logger.info(
@@ -733,12 +780,13 @@ def api_news():
         )
 
     app.logger.info(
-        "request_done language=%s model=%s items=%s article_based=%s rss_based=%s",
+        "request_done language=%s model=%s items=%s article_based=%s rss_based=%s skipped_no_article=%s",
         language,
         model_key,
         len(result),
         source_type_counts.get("article", 0),
         source_type_counts.get("rss", 0),
+        skipped_due_to_missing_article,
     )
 
     return jsonify(
