@@ -43,6 +43,74 @@ Not:
 - `SOURCE_OVERSAMPLE_FACTOR` (varsayılan `4`) ile kaynak başına daha fazla aday link çekilip, çekilemeyen haberler yerine yeni adaylar denenir.
 - API yanıtındaki her haber için `image_url` alanı da döner (önce RSS medya alanları, yoksa haber sayfası `og:image`/`twitter:image`).
 
+## Model Değerlendirme (ROUGE/BLEU + Extended)
+
+Haber özetleme modellerini karşılaştırmak için `evaluate_models.py` script'i eklendi.
+
+### Desteklenen veri formatı
+
+- `jsonl`, `json`, `csv`, `tsv`
+- Zorunlu alanlar:
+  - `article` (kaynak metin)
+  - `reference_summary` (insan referans özeti)
+- Opsiyonel alanlar:
+  - `id`
+  - `title`
+
+Örnek veri:
+
+`news_flow_web/examples/eval_dataset.sample.jsonl`
+
+### Çalıştırma örneği
+
+```bash
+cd /Users/mskayacioglu/Desktop/inf494_projet/news_flow_web
+./run_evaluation.sh \
+  --dataset examples/eval_dataset.sample.jsonl \
+  --article-field article \
+  --reference-field reference_summary \
+  --title-field title \
+  --models bart_large_cnn bart_base_cnn bart_reuters mbart50_xlsum \
+  --language en \
+  --include-summaries
+```
+
+`run_evaluation.sh` script'i otomatik olarak:
+- `.venv` yoksa oluşturur
+- `requirements.txt` bağımlılıklarını kurar
+- `evaluate_models.py` script'ini çalıştırır
+
+### Üretilen çıktılar
+
+Script varsayılan olarak `news_flow_web/eval_runs/run_<timestamp>/` altında üretir:
+
+- `detailed_metrics.csv`: örnek-bazlı skorlar
+- `model_summary.csv`: model ortalama/std skorlar
+- `report.md`: hızlı karşılaştırma tablosu
+- `run_config.json`: koşu konfigürasyonu
+
+### Hesaplanan metrikler
+
+- Klasik:
+  - `ROUGE-1`, `ROUGE-2`, `ROUGE-L` (precision/recall/f1)
+  - `BLEU`
+- Ek:
+  - `METEOR-lite` (referans bazlı)
+  - `compression_ratio`, `latency_seconds`
+  - `source_coverage`, `source_recall`
+  - `fragment_coverage`, `fragment_density` (extractiveness)
+  - `novelty_1gram`, `novelty_2gram`, `repetition_3gram`
+- İnsan-merkezli capability proxy skorları (0-1):
+  - `capability_coherence`
+  - `capability_accuracy`
+  - `capability_clarity`
+  - `capability_relevance`
+  - `capability_efficiency`
+  - `capability_overall`
+- Ek kalite proxy skorları (0-1):
+  - `quality_factuality`
+  - `quality_completeness`
+
 ## API
 
 `GET /api/news`
