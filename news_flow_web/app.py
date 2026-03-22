@@ -439,6 +439,40 @@ def fetch_article_text(url: str) -> str:
     return ""
 
 
+@lru_cache(maxsize=256)
+def fetch_article_image(url: str) -> str:
+    if not url:
+        return ""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    resolved_url = resolve_article_url(url, headers=headers)
+    html_text = ""
+    if requests is not None:
+        try:
+            response = requests.get(
+                resolved_url,
+                headers=headers,
+                timeout=ARTICLE_FETCH_TIMEOUT,
+                allow_redirects=True,
+            )
+            content_type = (response.headers.get("Content-Type") or "").lower()
+            if response.ok and (
+                "text/html" in content_type or "application/xhtml+xml" in content_type
+            ):
+                html_text = response.text[: MAX_ARTICLE_CHARS * 2]
+        except Exception:
+            html_text = ""
+    if not html_text:
+        return ""
+    return extract_image_from_html(html_text)
+
+
 def resolve_article_url(url: str, headers: dict) -> str:
     if not url:
         return url
@@ -519,6 +553,56 @@ def find_child_text(item: ET.Element, tag_candidates):
     return ""
 
 
+def extract_image_url_from_html_fragment(fragment: str) -> str:
+    if not fragment:
+        return ""
+    m = re.search(r'(?is)<img[^>]+src=["\']([^"\']+)["\']', fragment)
+    if not m:
+        return ""
+    return normalize_text(m.group(1))
+
+
+def extract_image_url_from_rss_item(item: ET.Element, description: str) -> str:
+    media_ns = "{http://search.yahoo.com/mrss/}"
+
+    for tag in ["enclosure", f"{media_ns}content", f"{media_ns}thumbnail"]:
+        for el in item.findall(tag):
+            url = normalize_text(el.attrib.get("url", ""))
+            mime = (el.attrib.get("type") or "").lower()
+            if url and (not mime or "image" in mime):
+                return url
+
+    for group in item.findall(f"{media_ns}group"):
+        for child_tag in [f"{media_ns}content", f"{media_ns}thumbnail"]:
+            for el in group.findall(child_tag):
+                url = normalize_text(el.attrib.get("url", ""))
+                mime = (el.attrib.get("type") or "").lower()
+                if url and (not mime or "image" in mime):
+                    return url
+
+    return extract_image_url_from_html_fragment(description)
+
+
+def extract_image_from_html(html_text: str) -> str:
+    if not html_text:
+        return ""
+
+    for pattern in [
+        r'(?is)<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'(?is)<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'(?is)<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+        r'(?is)<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image["\']',
+    ]:
+        m = re.search(pattern, html_text)
+        if m and m.group(1):
+            return normalize_text(m.group(1))
+
+    m = re.search(r'(?is)<article\b[^>]*>.*?<img[^>]+src=["\']([^"\']+)["\']', html_text)
+    if m and m.group(1):
+        return normalize_text(m.group(1))
+    return ""
+
+
 def parse_rss(xml_content: bytes):
     root = ET.fromstring(xml_content)
     items = []
@@ -551,6 +635,7 @@ def parse_rss(xml_content: bytes):
             item,
             ["pubDate", "published", "{http://www.w3.org/2005/Atom}updated"],
         )
+        image_url = extract_image_url_from_rss_item(item, description)
 
         if not title or not link:
             continue
@@ -560,6 +645,7 @@ def parse_rss(xml_content: bytes):
                 "title": strip_html(title),
                 "link": link.strip(),
                 "description": strip_html(description),
+                "image_url": image_url,
                 "published_at": parse_datetime(pub_date),
             }
         )
@@ -796,6 +882,7 @@ def api_news():
         text_for_summary = f"{item['title']}. {article_text}".strip()
         summary_input_type = "article"
         summary = summarize_text(text_for_summary, model_key, language)
+        image_url = item.get("image_url") or fetch_article_image(item["link"])
         source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
         produced_per_source[source_key] = current_count + 1
         app.logger.info(
@@ -814,6 +901,7 @@ def api_news():
                 "published_at": (
                     item["published_at"].isoformat() if item["published_at"] else None
                 ),
+                "image_url": image_url,
                 "summary_input_type": summary_input_type,
                 "raw_text": text_for_summary if include_raw else None,
             }

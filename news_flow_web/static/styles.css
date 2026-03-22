@@ -131,17 +131,20 @@ body::before {
 }
 
 .feed {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  column-count: 2;
+  column-gap: 12px;
 }
 
 .news-card {
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 12px;
   background: linear-gradient(180deg, rgba(41, 42, 46, 0.94), rgba(37, 38, 41, 0.82));
   border: 1px solid rgba(67, 70, 75, 0.86);
   border-radius: 15px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.23);
   padding: 15px 16px;
+  break-inside: avoid;
   animation: card-in 360ms ease both;
   animation-delay: calc(var(--i, 0) * 55ms);
   transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease;
@@ -159,6 +162,20 @@ body::before {
   gap: 8px;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.news-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(67, 70, 75, 0.8);
+  margin: 8px 0 10px;
+  background: rgb(24, 25, 28);
+}
+
+.news-image.hidden {
+  display: none;
 }
 
 .title {
@@ -295,6 +312,63 @@ body::before {
   margin: 0;
 }
 
+.display-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  display: inline-block;
+  margin: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: rgb(47, 48, 50);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: 0.2s ease;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  border-radius: 999px;
+  background: rgb(255, 255, 255);
+  transition: 0.2s ease;
+}
+
+.switch input:checked + .slider {
+  background: rgba(48, 106, 248, 0.25);
+  border-color: rgba(48, 106, 248, 0.7);
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(20px);
+  background: rgb(255, 255, 255);
+}
+
 .controls button {
   margin-top: 8px;
   height: 40px;
@@ -354,7 +428,7 @@ body::before {
   }
 
   .feed {
-    grid-template-columns: 1fr;
+    column-count: 1;
   }
 
   .source-checklist {

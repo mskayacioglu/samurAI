@@ -41,6 +41,7 @@ Not:
 - Her dil için 10 yerel/populer dogrudan kaynak tanimlidir (Google News yok).
 - Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
 - `SOURCE_OVERSAMPLE_FACTOR` (varsayılan `4`) ile kaynak başına daha fazla aday link çekilip, çekilemeyen haberler yerine yeni adaylar denenir.
+- API yanıtındaki her haber için `image_url` alanı da döner (önce RSS medya alanları, yoksa haber sayfası `og:image`/`twitter:image`).
 
 ## API
 

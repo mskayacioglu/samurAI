@@ -41,6 +41,15 @@
 
           <label for="limit">Per Source</label>
           <input id="limit" type="number" value="3" min="1" max="15" />
+
+          <label>Image</label>
+          <div class="display-toggle" id="displayMode">
+            <label class="switch">
+              <input type="checkbox" id="showImages" checked />
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Show images</span>
+          </div>
           <button id="refreshBtn">Refresh Feed</button>
         </section>
         <div id="status" class="status card"></div>
@@ -57,6 +66,7 @@
           <span class="source"></span>
           <time class="time"></time>
         </div>
+        <img class="news-image" alt="News visual" loading="lazy" />
         <h2 class="title"></h2>
         <p class="summary"></p>
         <a class="source-link" target="_blank" rel="noopener noreferrer">Open Original</a>
@@ -72,6 +82,8 @@
       const feedEl = document.getElementById("feed");
       const statusEl = document.getElementById("status");
       const cardTpl = document.getElementById("cardTemplate");
+      const displayModeEl = document.getElementById("displayMode");
+      const showImagesEl = document.getElementById("showImages");
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
 
@@ -114,6 +126,8 @@
       }
 
       async function loadNews() {
+        const showImages = !!showImagesEl?.checked;
+        feedEl.dataset.showImages = showImages ? "1" : "0";
         const selectedSources = getSelectedSources();
         const params = new URLSearchParams({
           language: languageEl.value,
@@ -137,11 +151,19 @@
           );
           data.items.forEach((item, index) => {
             const node = cardTpl.content.cloneNode(true);
-            node.querySelector(".news-card").style.setProperty("--i", String(index));
+            const card = node.querySelector(".news-card");
+            card.style.setProperty("--i", String(index));
+            card.dataset.showImages = showImages ? "1" : "0";
             node.querySelector(".source").textContent = item.source_name;
             node.querySelector(".time").textContent = fmtDate(item.published_at);
             node.querySelector(".title").textContent = item.title;
             node.querySelector(".summary").textContent = item.summary;
+            const imageEl = node.querySelector(".news-image");
+            if (showImages && item.image_url) {
+              imageEl.src = item.image_url;
+            } else {
+              imageEl.classList.add("hidden");
+            }
 
             const link = node.querySelector(".source-link");
             link.href = item.link;
@@ -154,6 +176,7 @@
       }
 
       refreshBtn.addEventListener("click", loadNews);
+      displayModeEl.addEventListener("change", loadNews);
       languageEl.addEventListener("change", () => {
         renderSourceOptions();
         loadNews();
