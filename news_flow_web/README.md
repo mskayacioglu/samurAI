@@ -38,8 +38,9 @@ Desteklenen model anahtarları:
 Not:
 - İngilizce dışı dillerde API, otomatik olarak `mbart50_xlsum` modelini kullanır.
 - Varsayılan dil `en` olarak gelir; `LANGUAGE_KEY` ile değiştirilebilir.
-- Her dil için 9 yerel/populer dogrudan kaynak + 1 Google News linki tanimlidir.
+- Her dil için 10 yerel/populer dogrudan kaynak tanimlidir (Google News yok).
 - Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
+- `SOURCE_OVERSAMPLE_FACTOR` (varsayılan `4`) ile kaynak başına daha fazla aday link çekilip, çekilemeyen haberler yerine yeni adaylar denenir.
 
 ## API
 

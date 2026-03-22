@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from html import unescape
+from urllib.parse import unquote, urlparse
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
@@ -47,6 +48,7 @@ DEFAULT_SUMMARY_TOKENS = int(os.getenv("SUMMARY_MAX_TOKENS", "96"))
 ARTICLE_FETCH_TIMEOUT = int(os.getenv("ARTICLE_FETCH_TIMEOUT", "8"))
 MAX_ARTICLE_CHARS = int(os.getenv("MAX_ARTICLE_CHARS", "12000"))
 MIN_ARTICLE_CHARS = int(os.getenv("MIN_ARTICLE_CHARS", "500"))
+SOURCE_OVERSAMPLE_FACTOR = int(os.getenv("SOURCE_OVERSAMPLE_FACTOR", "4"))
 
 LANGUAGE_CONFIGS = {
     "en": {"name": "English", "mbart_lang": "en_XX"},
@@ -68,24 +70,6 @@ LANGUAGE_CONFIGS = {
 
 DEFAULT_LANGUAGE_KEY = os.getenv("LANGUAGE_KEY", "en")
 
-GOOGLE_NEWS_MARKETS = {
-    "en": {"hl": "en", "gl": "US", "ceid": "US:en"},
-    "tr": {"hl": "tr", "gl": "TR", "ceid": "TR:tr"},
-    "fr": {"hl": "fr", "gl": "FR", "ceid": "FR:fr"},
-    "de": {"hl": "de", "gl": "DE", "ceid": "DE:de"},
-    "es": {"hl": "es", "gl": "ES", "ceid": "ES:es"},
-    "it": {"hl": "it", "gl": "IT", "ceid": "IT:it"},
-    "ru": {"hl": "ru", "gl": "RU", "ceid": "RU:ru"},
-    "ar": {"hl": "ar", "gl": "AE", "ceid": "AE:ar"},
-    "hi": {"hl": "hi", "gl": "IN", "ceid": "IN:hi"},
-    "zh": {"hl": "zh-CN", "gl": "CN", "ceid": "CN:zh-Hans"},
-    "ja": {"hl": "ja", "gl": "JP", "ceid": "JP:ja"},
-    "ko": {"hl": "ko", "gl": "KR", "ceid": "KR:ko"},
-    "nl": {"hl": "nl", "gl": "NL", "ceid": "NL:nl"},
-    "ro": {"hl": "ro", "gl": "RO", "ceid": "RO:ro"},
-    "vi": {"hl": "vi", "gl": "VN", "ceid": "VN:vi"},
-}
-
 TOP_NEWS_SOURCES = {
     "en": [
         {"key": "bbc_world", "name": "BBC World", "rss_url": "https://feeds.bbci.co.uk/news/world/rss.xml"},
@@ -97,6 +81,7 @@ TOP_NEWS_SOURCES = {
         {"key": "dw_world", "name": "DW World", "rss_url": "https://rss.dw.com/xml/rss-en-world"},
         {"key": "nyt_world", "name": "NYTimes World", "rss_url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
         {"key": "fox_world", "name": "Fox News World", "rss_url": "https://moxie.foxnews.com/google-publisher/world.xml"},
+        {"key": "sky_world", "name": "Sky News World", "rss_url": "https://feeds.skynews.com/feeds/rss/world.xml"},
     ],
     "tr": [
         {"key": "tr_trthaber", "name": "TRT Haber", "rss_url": "https://www.trthaber.com/sondakika.rss"},
@@ -108,6 +93,7 @@ TOP_NEWS_SOURCES = {
         {"key": "tr_cnnturk", "name": "CNN Turk", "rss_url": "https://www.cnnturk.com/feed/rss/turkiye/news"},
         {"key": "tr_milliyet", "name": "Milliyet", "rss_url": "https://www.milliyet.com.tr/rss/rssnew/gundemr.xml"},
         {"key": "tr_cumhuriyet", "name": "Cumhuriyet", "rss_url": "https://www.cumhuriyet.com.tr/rss"},
+        {"key": "tr_aa", "name": "Anadolu Ajansi", "rss_url": "https://www.aa.com.tr/tr/rss/default?cat=guncel"},
     ],
     "fr": [
         {"key": "fr_lemonde", "name": "Le Monde", "rss_url": "https://www.lemonde.fr/rss/une.xml"},
@@ -119,6 +105,7 @@ TOP_NEWS_SOURCES = {
         {"key": "fr_rfi", "name": "RFI FR", "rss_url": "https://www.rfi.fr/fr/rss"},
         {"key": "fr_lexpress", "name": "L'Express", "rss_url": "https://www.lexpress.fr/rss/alaune.xml"},
         {"key": "fr_leparisien", "name": "Le Parisien", "rss_url": "https://feeds.leparisien.fr/leparisien/rss/actualites"},
+        {"key": "fr_euronews", "name": "Euronews FR", "rss_url": "https://fr.euronews.com/rss?format=mrss"},
     ],
     "de": [
         {"key": "de_tagesschau", "name": "Tagesschau", "rss_url": "https://www.tagesschau.de/xml/rss2"},
@@ -130,6 +117,7 @@ TOP_NEWS_SOURCES = {
         {"key": "de_ntv", "name": "n-tv", "rss_url": "https://www.n-tv.de/rss"},
         {"key": "de_dlf", "name": "Deutschlandfunk", "rss_url": "https://www.deutschlandfunk.de/nachrichten-100.rss"},
         {"key": "de_handelsblatt", "name": "Handelsblatt", "rss_url": "https://www.handelsblatt.com/contentexport/feed/schlagzeilen"},
+        {"key": "de_bild", "name": "BILD", "rss_url": "https://www.bild.de/rssfeeds/vw-neu/vw-neu-16725514,view=rss2.bild.xml"},
     ],
     "es": [
         {"key": "es_elpais", "name": "El Pais", "rss_url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada"},
@@ -141,6 +129,7 @@ TOP_NEWS_SOURCES = {
         {"key": "es_eldiario", "name": "elDiario", "rss_url": "https://www.eldiario.es/rss/"},
         {"key": "es_rtve", "name": "RTVE", "rss_url": "https://www.rtve.es/rss/"},
         {"key": "es_elconfidencial", "name": "El Confidencial", "rss_url": "https://rss.elconfidencial.com/espana/"},
+        {"key": "es_europapress", "name": "Europa Press", "rss_url": "https://www.europapress.es/rss/rss.aspx"},
     ],
     "it": [
         {"key": "it_ansa", "name": "ANSA", "rss_url": "https://www.ansa.it/sito/ansait_rss.xml"},
@@ -152,6 +141,7 @@ TOP_NEWS_SOURCES = {
         {"key": "it_rainews", "name": "Rai News", "rss_url": "https://www.rainews.it/dl/rainews/rss/atom.xml"},
         {"key": "it_fanpage", "name": "Fanpage", "rss_url": "https://www.fanpage.it/feed/"},
         {"key": "it_agi", "name": "AGI", "rss_url": "https://www.agi.it/rss"},
+        {"key": "it_adnkronos", "name": "Adnkronos", "rss_url": "https://www.adnkronos.com/RSS_Speciali.xml"},
     ],
     "ru": [
         {"key": "ru_tass", "name": "TASS", "rss_url": "https://tass.ru/rss/v2.xml"},
@@ -163,6 +153,7 @@ TOP_NEWS_SOURCES = {
         {"key": "ru_rg", "name": "Rossiyskaya Gazeta", "rss_url": "https://rg.ru/xml/index.xml"},
         {"key": "ru_iz", "name": "Izvestia", "rss_url": "https://iz.ru/xml/rss/all.xml"},
         {"key": "ru_interfax", "name": "Interfax", "rss_url": "https://www.interfax.ru/rss.asp"},
+        {"key": "ru_vedomosti", "name": "Vedomosti", "rss_url": "https://www.vedomosti.ru/rss/news"},
     ],
     "ar": [
         {"key": "ar_aljazeera", "name": "Al Jazeera Arabic", "rss_url": "https://www.aljazeera.net/aljazeerarss/ar"},
@@ -174,6 +165,7 @@ TOP_NEWS_SOURCES = {
         {"key": "ar_aawsat", "name": "Asharq Al-Awsat", "rss_url": "https://aawsat.com/home/feed"},
         {"key": "ar_cnn", "name": "CNN Arabic", "rss_url": "https://arabic.cnn.com/feed"},
         {"key": "ar_independent", "name": "Independent Arabic", "rss_url": "https://www.independentarabia.com/rss.xml"},
+        {"key": "ar_euronews", "name": "Euronews Arabic", "rss_url": "https://arabic.euronews.com/rss"},
     ],
     "hi": [
         {"key": "hi_jagran", "name": "Dainik Jagran", "rss_url": "https://www.jagran.com/rss/news/national.xml"},
@@ -185,6 +177,7 @@ TOP_NEWS_SOURCES = {
         {"key": "hi_bbchindi", "name": "BBC Hindi", "rss_url": "https://feeds.bbci.co.uk/hindi/rss.xml"},
         {"key": "hi_zee", "name": "Zee News Hindi", "rss_url": "https://zeenews.india.com/hindi/rss/india-national-news.xml"},
         {"key": "hi_abp", "name": "ABP Hindi", "rss_url": "https://www.abplive.com/home/feed"},
+        {"key": "hi_indiatv", "name": "India TV Hindi", "rss_url": "https://www.indiatv.in/rssnews/topstory.xml"},
     ],
     "zh": [
         {"key": "zh_xinhua", "name": "Xinhua", "rss_url": "http://www.news.cn/politics/news_politics.xml"},
@@ -196,6 +189,7 @@ TOP_NEWS_SOURCES = {
         {"key": "zh_globaltimes", "name": "Global Times CN", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml"},
         {"key": "zh_stcn", "name": "STCN", "rss_url": "https://news.stcn.com/rss/index.xml"},
         {"key": "zh_zaobao", "name": "Zaobao", "rss_url": "https://www.zaobao.com.sg/realtime/china/rss.xml"},
+        {"key": "zh_huanqiu", "name": "Huanqiu", "rss_url": "https://rss.huanqiu.com/china.xml"},
     ],
     "ja": [
         {"key": "ja_nhk", "name": "NHK", "rss_url": "https://www3.nhk.or.jp/rss/news/cat0.xml"},
@@ -207,6 +201,7 @@ TOP_NEWS_SOURCES = {
         {"key": "ja_jiji", "name": "Jiji", "rss_url": "https://www.jiji.com/rss/ranking.rdf"},
         {"key": "ja_tokyo", "name": "Tokyo Shimbun", "rss_url": "https://www.tokyo-np.co.jp/rss"},
         {"key": "ja_47news", "name": "47News", "rss_url": "https://www.47news.jp/rss/all.xml"},
+        {"key": "ja_tbs", "name": "TBS News", "rss_url": "https://newsdig.tbs.co.jp/list/rss.xml"},
     ],
     "ko": [
         {"key": "ko_yonhap", "name": "Yonhap", "rss_url": "https://www.yna.co.kr/rss/news.xml"},
@@ -218,6 +213,7 @@ TOP_NEWS_SOURCES = {
         {"key": "ko_kbs", "name": "KBS", "rss_url": "https://news.kbs.co.kr/rss/rss.xml"},
         {"key": "ko_sbs", "name": "SBS", "rss_url": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01"},
         {"key": "ko_mbc", "name": "MBC", "rss_url": "https://imnews.imbc.com/rss/news/news_00.xml"},
+        {"key": "ko_seoul", "name": "Seoul Shinmun", "rss_url": "https://www.seoul.co.kr/rss/news.xml"},
     ],
     "nl": [
         {"key": "nl_nos", "name": "NOS", "rss_url": "https://feeds.nos.nl/nosnieuwsalgemeen"},
@@ -229,6 +225,7 @@ TOP_NEWS_SOURCES = {
         {"key": "nl_ad", "name": "AD", "rss_url": "https://www.ad.nl/rss.xml"},
         {"key": "nl_parool", "name": "Parool", "rss_url": "https://www.parool.nl/rss.xml"},
         {"key": "nl_rtl", "name": "RTL Nieuws", "rss_url": "https://www.rtlnieuws.nl/rss.xml"},
+        {"key": "nl_bnr", "name": "BNR", "rss_url": "https://www.bnr.nl/rss/nieuws"},
     ],
     "ro": [
         {"key": "ro_hotnews", "name": "HotNews", "rss_url": "https://hotnews.ro/rss"},
@@ -240,6 +237,7 @@ TOP_NEWS_SOURCES = {
         {"key": "ro_ziare", "name": "Ziare", "rss_url": "https://www.ziare.com/rss"},
         {"key": "ro_antena3", "name": "Antena 3", "rss_url": "https://www.antena3.ro/rss"},
         {"key": "ro_libertatea", "name": "Libertatea", "rss_url": "https://www.libertatea.ro/feed"},
+        {"key": "ro_euronews", "name": "Euronews RO", "rss_url": "https://ro.euronews.com/rss"},
     ],
     "vi": [
         {"key": "vi_vnexpress", "name": "VNExpress", "rss_url": "https://vnexpress.net/rss/tin-moi-nhat.rss"},
@@ -251,6 +249,7 @@ TOP_NEWS_SOURCES = {
         {"key": "vi_vtc", "name": "VTC News", "rss_url": "https://vtcnews.vn/rss/feed.rss"},
         {"key": "vi_nld", "name": "Nguoi Lao Dong", "rss_url": "https://nld.com.vn/rss/home.rss"},
         {"key": "vi_tienphong", "name": "Tien Phong", "rss_url": "https://tienphong.vn/rss/home.rss"},
+        {"key": "vi_vov", "name": "VOV", "rss_url": "https://vov.vn/rss/home.rss"},
     ],
 }
 
@@ -264,15 +263,6 @@ def build_news_sources():
                 "rss_url": source["rss_url"],
                 "language": lang_key,
             }
-        market = GOOGLE_NEWS_MARKETS[lang_key]
-        built[f"{lang_key}_google_news"] = {
-            "name": f"Google News {LANGUAGE_CONFIGS[lang_key]['name']}",
-            "rss_url": (
-                f"https://news.google.com/rss?hl={market['hl']}"
-                f"&gl={market['gl']}&ceid={market['ceid']}"
-            ),
-            "language": lang_key,
-        }
     return built
 
 
@@ -396,11 +386,12 @@ def fetch_article_text(url: str) -> str:
         "Accept-Language": "en-US,en;q=0.9",
     }
 
+    resolved_url = resolve_article_url(url, headers=headers)
     html_text = ""
     if requests is not None:
         try:
             response = requests.get(
-                url,
+                resolved_url,
                 headers=headers,
                 timeout=ARTICLE_FETCH_TIMEOUT,
                 allow_redirects=True,
@@ -415,7 +406,7 @@ def fetch_article_text(url: str) -> str:
 
     if not html_text:
         try:
-            req = Request(url, headers=headers)
+            req = Request(resolved_url, headers=headers)
             with urlopen(req, timeout=ARTICLE_FETCH_TIMEOUT) as response:
                 content_type = (response.headers.get("Content-Type") or "").lower()
                 if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
@@ -432,7 +423,7 @@ def fetch_article_text(url: str) -> str:
     # Robust fallback extractor for JS-heavy/complex templates.
     if trafilatura is not None:
         try:
-            downloaded = trafilatura.fetch_url(url)
+            downloaded = trafilatura.fetch_url(resolved_url)
             if downloaded:
                 text = trafilatura.extract(
                     downloaded,
@@ -446,6 +437,46 @@ def fetch_article_text(url: str) -> str:
         except Exception:
             return ""
     return ""
+
+
+def resolve_article_url(url: str, headers: dict) -> str:
+    if not url:
+        return url
+    try:
+        host = urlparse(url).netloc.lower()
+    except Exception:
+        host = ""
+    if "news.google.com" not in host:
+        return url
+    if requests is None:
+        return url
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=max(3, ARTICLE_FETCH_TIMEOUT),
+            allow_redirects=True,
+        )
+        final_url = response.url or url
+        final_host = urlparse(final_url).netloc.lower()
+        if "news.google.com" not in final_host:
+            return final_url
+
+        html = response.text or ""
+        candidates = re.findall(r"https?://[^\s\"'<>\\\\]+", html)
+        for candidate in candidates:
+            candidate = normalize_text(unquote(candidate))
+            cand_host = urlparse(candidate).netloc.lower()
+            if not cand_host:
+                continue
+            if "news.google.com" in cand_host:
+                continue
+            if "google.com" in cand_host or "gstatic.com" in cand_host:
+                continue
+            return candidate
+    except Exception:
+        return url
+    return url
 
 
 def extractive_fallback(text: str, max_chars: int = 280) -> str:
@@ -674,9 +705,10 @@ def gather_news(limit_per_source: int, language_key: str, selected_sources: list
 
     all_entries = []
 
+    raw_limit = max(1, limit_per_source * max(1, SOURCE_OVERSAMPLE_FACTOR))
     for key in keys:
         cfg = lang_sources[key]
-        all_entries.extend(fetch_source_news(key, cfg, limit_per_source))
+        all_entries.extend(fetch_source_news(key, cfg, raw_limit))
 
     all_entries.sort(
         key=lambda x: x["published_at"] or datetime.fromtimestamp(0, tz=timezone.utc),
@@ -735,15 +767,22 @@ def api_news():
     elif source.strip():
         selected_sources = [source.strip()]
 
+    limit_per_source = max(1, min(limit, 15))
     entries = gather_news(
-        limit_per_source=max(1, min(limit, 15)),
+        limit_per_source=limit_per_source,
         language_key=language,
         selected_sources=selected_sources,
     )
     result = []
     source_type_counts = {"article": 0, "rss": 0}
     skipped_due_to_missing_article = 0
+    produced_per_source = {}
     for item in entries:
+        source_key = item["source_key"]
+        current_count = produced_per_source.get(source_key, 0)
+        if current_count >= limit_per_source:
+            continue
+
         article_text = fetch_article_text(item["link"])
         if not article_text:
             skipped_due_to_missing_article += 1
@@ -758,6 +797,7 @@ def api_news():
         summary_input_type = "article"
         summary = summarize_text(text_for_summary, model_key, language)
         source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
+        produced_per_source[source_key] = current_count + 1
         app.logger.info(
             "summary_input_type=%s source=%s title=%s",
             summary_input_type,
