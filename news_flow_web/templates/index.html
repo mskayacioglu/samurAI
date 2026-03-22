@@ -14,13 +14,17 @@
         </header>
 
         <section class="controls card">
-          <label for="source">Source</label>
-          <select id="source">
-            <option value="">All Sources</option>
-            {% for key, source in sources.items() %}
-            <option value="{{ key }}">{{ source.name }}</option>
+          <label for="language">Language</label>
+          <select id="language">
+            {% for key, language in languages.items() %}
+            <option value="{{ key }}" {% if key == default_language %}selected{% endif %}>
+              {{ language.name }}
+            </option>
             {% endfor %}
           </select>
+
+          <label for="sources">Sources</label>
+          <select id="sources" multiple></select>
 
           <label for="model">Model</label>
           <select id="model">
@@ -32,7 +36,7 @@
           </select>
 
           <label for="limit">Per Source</label>
-          <input id="limit" type="number" value="5" min="1" max="15" />
+          <input id="limit" type="number" value="1" min="1" max="15" />
           <button id="refreshBtn">Refresh</button>
         </section>
       </div>
@@ -56,13 +60,36 @@
     </template>
 
     <script>
-      const sourceEl = document.getElementById("source");
+      const languageEl = document.getElementById("language");
+      const sourcesEl = document.getElementById("sources");
       const modelEl = document.getElementById("model");
       const limitEl = document.getElementById("limit");
       const refreshBtn = document.getElementById("refreshBtn");
       const feedEl = document.getElementById("feed");
       const statusEl = document.getElementById("status");
       const cardTpl = document.getElementById("cardTemplate");
+      const allSources = {{ sources | tojson }};
+      const allLanguages = {{ languages | tojson }};
+
+      function getSourcesByLanguage(languageKey) {
+        return Object.entries(allSources).filter(([, source]) => source.language === languageKey);
+      }
+
+      function renderSourceOptions() {
+        const languageSources = getSourcesByLanguage(languageEl.value);
+        sourcesEl.innerHTML = "";
+        languageSources.forEach(([key, source]) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = source.name;
+          option.selected = true;
+          sourcesEl.appendChild(option);
+        });
+      }
+
+      function getSelectedSources() {
+        return Array.from(sourcesEl.selectedOptions).map((option) => option.value);
+      }
 
       function fmtDate(iso) {
         if (!iso) return "Unknown time";
@@ -79,8 +106,10 @@
       }
 
       async function loadNews() {
+        const selectedSources = getSelectedSources();
         const params = new URLSearchParams({
-          source: sourceEl.value,
+          language: languageEl.value,
+          sources: selectedSources.join(","),
           model: modelEl.value,
           limit: limitEl.value,
         });
@@ -94,7 +123,10 @@
             throw new Error(data.error || "Failed to load data");
           }
 
-          setStatus(`Loaded ${data.count} items with model: ${data.model}`);
+          const languageName = allLanguages[data.language]?.name || data.language;
+          setStatus(
+            `Loaded ${data.count} items in ${languageName} with model: ${data.model} (${selectedSources.length} source(s))`
+          );
           data.items.forEach((item) => {
             const node = cardTpl.content.cloneNode(true);
             node.querySelector(".source").textContent = item.source_name;
@@ -113,7 +145,14 @@
       }
 
       refreshBtn.addEventListener("click", loadNews);
-      window.addEventListener("load", loadNews);
+      languageEl.addEventListener("change", () => {
+        renderSourceOptions();
+        loadNews();
+      });
+      window.addEventListener("load", () => {
+        renderSourceOptions();
+        loadNews();
+      });
     </script>
   </body>
 </html>

@@ -23,7 +23,7 @@ Ardından tarayıcıdan:
 
 ## Model Seçimi
 
-Varsayılan model `bart_large_cnn` olarak gelir. Farklı modeli varsayılan yapmak için:
+Varsayılan model `mbart50_xlsum` olarak gelir. Farklı modeli varsayılan yapmak için:
 
 ```bash
 MODEL_KEY=bart_reuters python app.py
@@ -33,13 +33,22 @@ Desteklenen model anahtarları:
 - `bart_large_cnn`
 - `bart_base_cnn`
 - `bart_reuters`
+- `mbart50_xlsum` (15 dil için çok dilli özetleme modeli)
+
+Not:
+- İngilizce dışı dillerde API, otomatik olarak `mbart50_xlsum` modelini kullanır.
+- Varsayılan dil `en` olarak gelir; `LANGUAGE_KEY` ile değiştirilebilir.
+- Her dil için birden fazla doğrudan yayıncı RSS kaynağı tanımlıdır (Google News bağımlılığı yok).
+- Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
 
 ## API
 
 `GET /api/news`
 
 Sorgu parametreleri:
-- `source`: `bbc_world`, `guardian_world`, `aljazeera_all`, `cnn_world`, `reuters_world`, `npr_world`, `dw_world` veya boş (hepsi)
+- `language`: `en`, `tr`, `fr`, `de`, `es`, `it`, `ru`, `ar`, `hi`, `zh`, `ja`, `ko`, `nl`, `ro`, `vi`
+- `sources`: virgülle ayrılmış kaynak anahtarları (ör: `bbc_world,guardian_world`)
+- `source`: geriye dönük tekil kaynak parametresi (`sources` verilmezse kullanılır)
 - `model`: model anahtarı
 - `limit`: kaynak başına haber adedi (1-15)
 - `include_raw`: `true|false`
@@ -51,5 +60,5 @@ Yanıtta her haber için `summary_input_type` alanı bulunur:
 Örnek:
 
 ```bash
-curl "http://localhost:8000/api/news?source=bbc_world&model=bart_large_cnn&limit=3"
+curl "http://localhost:8000/api/news?language=tr&sources=google_news_tr&model=mbart50_xlsum&limit=3"
 ```
