@@ -58,253 +58,215 @@ LANGUAGE_CONFIGS = {
 
 DEFAULT_LANGUAGE_KEY = os.getenv("LANGUAGE_KEY", "en")
 
-NEWS_SOURCES = {
-    "bbc_world": {
-        "name": "BBC World",
-        "rss_url": "https://feeds.bbci.co.uk/news/world/rss.xml",
-        "language": "en",
-    },
-    "guardian_world": {
-        "name": "The Guardian World",
-        "rss_url": "https://www.theguardian.com/world/rss",
-        "language": "en",
-    },
-    "aljazeera_all": {
-        "name": "Al Jazeera",
-        "rss_url": "https://www.aljazeera.com/xml/rss/all.xml",
-        "language": "en",
-    },
-    "cnn_world": {
-        "name": "CNN World",
-        "rss_url": "http://rss.cnn.com/rss/edition_world.rss",
-        "language": "en",
-    },
-    "reuters_world": {
-        "name": "Reuters World",
-        "rss_url": "https://feeds.reuters.com/Reuters/worldNews",
-        "language": "en",
-    },
-    "npr_world": {
-        "name": "NPR World",
-        "rss_url": "https://feeds.npr.org/1004/rss.xml",
-        "language": "en",
-    },
-    "dw_world": {
-        "name": "DW World",
-        "rss_url": "https://rss.dw.com/xml/rss-en-world",
-        "language": "en",
-    },
-    "tr_trthaber": {
-        "name": "TRT Haber",
-        "rss_url": "https://www.trthaber.com/sondakika.rss",
-        "language": "tr",
-    },
-    "tr_hurriyet": {
-        "name": "Hurriyet",
-        "rss_url": "https://www.hurriyet.com.tr/rss/anasayfa",
-        "language": "tr",
-    },
-    "tr_ntv": {
-        "name": "NTV",
-        "rss_url": "https://www.ntv.com.tr/son-dakika.rss",
-        "language": "tr",
-    },
-    "fr_lemonde": {
-        "name": "Le Monde",
-        "rss_url": "https://www.lemonde.fr/rss/une.xml",
-        "language": "fr",
-    },
-    "fr_lefigaro": {
-        "name": "Le Figaro",
-        "rss_url": "https://www.lefigaro.fr/rss/figaro_actualites.xml",
-        "language": "fr",
-    },
-    "fr_france24": {
-        "name": "France24 FR",
-        "rss_url": "https://www.france24.com/fr/rss",
-        "language": "fr",
-    },
-    "de_tagesschau": {
-        "name": "Tagesschau",
-        "rss_url": "https://www.tagesschau.de/xml/rss2",
-        "language": "de",
-    },
-    "de_spiegel": {
-        "name": "Der Spiegel",
-        "rss_url": "https://www.spiegel.de/schlagzeilen/index.rss",
-        "language": "de",
-    },
-    "de_faz": {
-        "name": "FAZ",
-        "rss_url": "https://www.faz.net/rss/aktuell/",
-        "language": "de",
-    },
-    "es_elpais": {
-        "name": "El Pais",
-        "rss_url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada",
-        "language": "es",
-    },
-    "es_elmundo": {
-        "name": "El Mundo",
-        "rss_url": "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml",
-        "language": "es",
-    },
-    "es_20minutos": {
-        "name": "20minutos",
-        "rss_url": "https://www.20minutos.es/rss/",
-        "language": "es",
-    },
-    "it_ansa": {
-        "name": "ANSA",
-        "rss_url": "https://www.ansa.it/sito/ansait_rss.xml",
-        "language": "it",
-    },
-    "it_repubblica": {
-        "name": "La Repubblica",
-        "rss_url": "https://www.repubblica.it/rss/homepage/rss2.0.xml",
-        "language": "it",
-    },
-    "it_corriere": {
-        "name": "Corriere della Sera",
-        "rss_url": "https://xml2.corriereobjects.it/rss/homepage.xml",
-        "language": "it",
-    },
-    "ru_lenta": {
-        "name": "Lenta",
-        "rss_url": "https://lenta.ru/rss/news",
-        "language": "ru",
-    },
-    "ru_tass": {
-        "name": "TASS",
-        "rss_url": "https://tass.ru/rss/v2.xml",
-        "language": "ru",
-    },
-    "ru_ria": {
-        "name": "RIA Novosti",
-        "rss_url": "https://ria.ru/export/rss2/archive/index.xml",
-        "language": "ru",
-    },
-    "ar_aljazeera": {
-        "name": "Al Jazeera Arabic",
-        "rss_url": "https://www.aljazeera.net/aljazeerarss/ar",
-        "language": "ar",
-    },
-    "ar_alarabiya": {
-        "name": "Al Arabiya",
-        "rss_url": "https://www.alarabiya.net/.mrss/ar.xml",
-        "language": "ar",
-    },
-    "ar_skynewsarabia": {
-        "name": "Sky News Arabia",
-        "rss_url": "https://www.skynewsarabia.com/web/rss",
-        "language": "ar",
-    },
-    "hi_jagran": {
-        "name": "Dainik Jagran",
-        "rss_url": "https://www.jagran.com/rss/news/national.xml",
-        "language": "hi",
-    },
-    "hi_bhaskar": {
-        "name": "Dainik Bhaskar",
-        "rss_url": "https://www.bhaskar.com/rss-v1--category-1061.xml",
-        "language": "hi",
-    },
-    "hi_livehindustan": {
-        "name": "Live Hindustan",
-        "rss_url": "https://www.livehindustan.com/rss/national/rssfeed.xml",
-        "language": "hi",
-    },
-    "zh_xinhua": {
-        "name": "Xinhua",
-        "rss_url": "http://www.news.cn/politics/news_politics.xml",
-        "language": "zh",
-    },
-    "zh_chinanews": {
-        "name": "China News",
-        "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml",
-        "language": "zh",
-    },
-    "zh_people": {
-        "name": "People CN",
-        "rss_url": "http://www.people.com.cn/rss/world.xml",
-        "language": "zh",
-    },
-    "ja_nhk": {
-        "name": "NHK",
-        "rss_url": "https://www3.nhk.or.jp/rss/news/cat0.xml",
-        "language": "ja",
-    },
-    "ja_asahi": {
-        "name": "Asahi",
-        "rss_url": "https://www.asahi.com/rss/asahi/newsheadlines.rdf",
-        "language": "ja",
-    },
-    "ja_yomiuri": {
-        "name": "Yomiuri",
-        "rss_url": "https://www.yomiuri.co.jp/rss/news/cat0.xml",
-        "language": "ja",
-    },
-    "ko_yonhap": {
-        "name": "Yonhap",
-        "rss_url": "https://www.yna.co.kr/rss/news.xml",
-        "language": "ko",
-    },
-    "ko_hani": {
-        "name": "Hankyoreh",
-        "rss_url": "https://www.hani.co.kr/rss/",
-        "language": "ko",
-    },
-    "ko_khan": {
-        "name": "Kyunghyang",
-        "rss_url": "https://www.khan.co.kr/rss/rssdata/total_news.xml",
-        "language": "ko",
-    },
-    "nl_nos": {
-        "name": "NOS",
-        "rss_url": "https://feeds.nos.nl/nosnieuwsalgemeen",
-        "language": "nl",
-    },
-    "nl_nu": {
-        "name": "NU",
-        "rss_url": "https://www.nu.nl/rss/Algemeen",
-        "language": "nl",
-    },
-    "nl_volkskrant": {
-        "name": "de Volkskrant",
-        "rss_url": "https://www.volkskrant.nl/voorpagina/rss.xml",
-        "language": "nl",
-    },
-    "ro_hotnews": {
-        "name": "HotNews",
-        "rss_url": "https://hotnews.ro/rss",
-        "language": "ro",
-    },
-    "ro_digi24": {
-        "name": "Digi24",
-        "rss_url": "https://www.digi24.ro/rss",
-        "language": "ro",
-    },
-    "ro_g4media": {
-        "name": "G4Media",
-        "rss_url": "https://www.g4media.ro/feed",
-        "language": "ro",
-    },
-    "vi_vnexpress": {
-        "name": "VNExpress",
-        "rss_url": "https://vnexpress.net/rss/tin-moi-nhat.rss",
-        "language": "vi",
-    },
-    "vi_tuoitre": {
-        "name": "Tuoi Tre",
-        "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss",
-        "language": "vi",
-    },
-    "vi_thanhnien": {
-        "name": "Thanh Nien",
-        "rss_url": "https://thanhnien.vn/rss/home.rss",
-        "language": "vi",
-    },
+GOOGLE_NEWS_MARKETS = {
+    "en": {"hl": "en", "gl": "US", "ceid": "US:en"},
+    "tr": {"hl": "tr", "gl": "TR", "ceid": "TR:tr"},
+    "fr": {"hl": "fr", "gl": "FR", "ceid": "FR:fr"},
+    "de": {"hl": "de", "gl": "DE", "ceid": "DE:de"},
+    "es": {"hl": "es", "gl": "ES", "ceid": "ES:es"},
+    "it": {"hl": "it", "gl": "IT", "ceid": "IT:it"},
+    "ru": {"hl": "ru", "gl": "RU", "ceid": "RU:ru"},
+    "ar": {"hl": "ar", "gl": "AE", "ceid": "AE:ar"},
+    "hi": {"hl": "hi", "gl": "IN", "ceid": "IN:hi"},
+    "zh": {"hl": "zh-CN", "gl": "CN", "ceid": "CN:zh-Hans"},
+    "ja": {"hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    "ko": {"hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+    "nl": {"hl": "nl", "gl": "NL", "ceid": "NL:nl"},
+    "ro": {"hl": "ro", "gl": "RO", "ceid": "RO:ro"},
+    "vi": {"hl": "vi", "gl": "VN", "ceid": "VN:vi"},
 }
+
+TOP_NEWS_SOURCES = {
+    "en": [
+        {"key": "bbc_world", "name": "BBC World", "rss_url": "https://feeds.bbci.co.uk/news/world/rss.xml"},
+        {"key": "guardian_world", "name": "The Guardian World", "rss_url": "https://www.theguardian.com/world/rss"},
+        {"key": "reuters_world", "name": "Reuters World", "rss_url": "https://feeds.reuters.com/Reuters/worldNews"},
+        {"key": "cnn_world", "name": "CNN World", "rss_url": "http://rss.cnn.com/rss/edition_world.rss"},
+        {"key": "npr_world", "name": "NPR World", "rss_url": "https://feeds.npr.org/1004/rss.xml"},
+        {"key": "aljazeera_world", "name": "Al Jazeera", "rss_url": "https://www.aljazeera.com/xml/rss/all.xml"},
+        {"key": "dw_world", "name": "DW World", "rss_url": "https://rss.dw.com/xml/rss-en-world"},
+        {"key": "nyt_world", "name": "NYTimes World", "rss_url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
+        {"key": "fox_world", "name": "Fox News World", "rss_url": "https://moxie.foxnews.com/google-publisher/world.xml"},
+    ],
+    "tr": [
+        {"key": "tr_trthaber", "name": "TRT Haber", "rss_url": "https://www.trthaber.com/sondakika.rss"},
+        {"key": "tr_hurriyet", "name": "Hurriyet", "rss_url": "https://www.hurriyet.com.tr/rss/anasayfa"},
+        {"key": "tr_ntv", "name": "NTV", "rss_url": "https://www.ntv.com.tr/son-dakika.rss"},
+        {"key": "tr_haberturk", "name": "Haberturk", "rss_url": "https://www.haberturk.com/rss"},
+        {"key": "tr_sozcu", "name": "Sozcu Gundem", "rss_url": "https://www.sozcu.com.tr/rss/gundem.xml"},
+        {"key": "tr_sabah", "name": "Sabah", "rss_url": "https://www.sabah.com.tr/rss/anasayfa.xml"},
+        {"key": "tr_cnnturk", "name": "CNN Turk", "rss_url": "https://www.cnnturk.com/feed/rss/turkiye/news"},
+        {"key": "tr_milliyet", "name": "Milliyet", "rss_url": "https://www.milliyet.com.tr/rss/rssnew/gundemr.xml"},
+        {"key": "tr_cumhuriyet", "name": "Cumhuriyet", "rss_url": "https://www.cumhuriyet.com.tr/rss"},
+    ],
+    "fr": [
+        {"key": "fr_lemonde", "name": "Le Monde", "rss_url": "https://www.lemonde.fr/rss/une.xml"},
+        {"key": "fr_lefigaro", "name": "Le Figaro", "rss_url": "https://www.lefigaro.fr/rss/figaro_actualites.xml"},
+        {"key": "fr_france24", "name": "France24 FR", "rss_url": "https://www.france24.com/fr/rss"},
+        {"key": "fr_liberation", "name": "Liberation", "rss_url": "https://www.liberation.fr/arc/outboundfeeds/rss-all/?outputType=xml"},
+        {"key": "fr_20minutes", "name": "20 Minutes FR", "rss_url": "https://www.20minutes.fr/feeds/rss-une.xml"},
+        {"key": "fr_ouestfrance", "name": "Ouest France", "rss_url": "https://www.ouest-france.fr/rss-en-continu.xml"},
+        {"key": "fr_rfi", "name": "RFI FR", "rss_url": "https://www.rfi.fr/fr/rss"},
+        {"key": "fr_lexpress", "name": "L'Express", "rss_url": "https://www.lexpress.fr/rss/alaune.xml"},
+        {"key": "fr_leparisien", "name": "Le Parisien", "rss_url": "https://feeds.leparisien.fr/leparisien/rss/actualites"},
+    ],
+    "de": [
+        {"key": "de_tagesschau", "name": "Tagesschau", "rss_url": "https://www.tagesschau.de/xml/rss2"},
+        {"key": "de_spiegel", "name": "Der Spiegel", "rss_url": "https://www.spiegel.de/schlagzeilen/index.rss"},
+        {"key": "de_faz", "name": "FAZ", "rss_url": "https://www.faz.net/rss/aktuell/"},
+        {"key": "de_welt", "name": "Die Welt", "rss_url": "https://www.welt.de/feeds/latest.rss"},
+        {"key": "de_zeit", "name": "Die Zeit", "rss_url": "https://newsfeed.zeit.de/index"},
+        {"key": "de_sueddeutsche", "name": "Sueddeutsche", "rss_url": "https://rss.sueddeutsche.de/rss/Topthemen"},
+        {"key": "de_ntv", "name": "n-tv", "rss_url": "https://www.n-tv.de/rss"},
+        {"key": "de_dlf", "name": "Deutschlandfunk", "rss_url": "https://www.deutschlandfunk.de/nachrichten-100.rss"},
+        {"key": "de_handelsblatt", "name": "Handelsblatt", "rss_url": "https://www.handelsblatt.com/contentexport/feed/schlagzeilen"},
+    ],
+    "es": [
+        {"key": "es_elpais", "name": "El Pais", "rss_url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada"},
+        {"key": "es_elmundo", "name": "El Mundo", "rss_url": "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml"},
+        {"key": "es_abc", "name": "ABC", "rss_url": "https://www.abc.es/rss/feeds/abcPortada.xml"},
+        {"key": "es_lavanguardia", "name": "La Vanguardia", "rss_url": "https://www.lavanguardia.com/rss/home.xml"},
+        {"key": "es_20minutos", "name": "20minutos", "rss_url": "https://www.20minutos.es/rss/"},
+        {"key": "es_publico", "name": "Publico", "rss_url": "https://www.publico.es/rss/"},
+        {"key": "es_eldiario", "name": "elDiario", "rss_url": "https://www.eldiario.es/rss/"},
+        {"key": "es_rtve", "name": "RTVE", "rss_url": "https://www.rtve.es/rss/"},
+        {"key": "es_elconfidencial", "name": "El Confidencial", "rss_url": "https://rss.elconfidencial.com/espana/"},
+    ],
+    "it": [
+        {"key": "it_ansa", "name": "ANSA", "rss_url": "https://www.ansa.it/sito/ansait_rss.xml"},
+        {"key": "it_repubblica", "name": "La Repubblica", "rss_url": "https://www.repubblica.it/rss/homepage/rss2.0.xml"},
+        {"key": "it_corriere", "name": "Corriere della Sera", "rss_url": "https://xml2.corriereobjects.it/rss/homepage.xml"},
+        {"key": "it_sole24", "name": "Il Sole 24 Ore", "rss_url": "https://www.ilsole24ore.com/rss/primapagina.xml"},
+        {"key": "it_lastampa", "name": "La Stampa", "rss_url": "https://www.lastampa.it/rss/home.xml"},
+        {"key": "it_tgcom24", "name": "TGCOM24", "rss_url": "https://www.tgcom24.mediaset.it/rss/homepage.xml"},
+        {"key": "it_rainews", "name": "Rai News", "rss_url": "https://www.rainews.it/dl/rainews/rss/atom.xml"},
+        {"key": "it_fanpage", "name": "Fanpage", "rss_url": "https://www.fanpage.it/feed/"},
+        {"key": "it_agi", "name": "AGI", "rss_url": "https://www.agi.it/rss"},
+    ],
+    "ru": [
+        {"key": "ru_tass", "name": "TASS", "rss_url": "https://tass.ru/rss/v2.xml"},
+        {"key": "ru_ria", "name": "RIA Novosti", "rss_url": "https://ria.ru/export/rss2/archive/index.xml"},
+        {"key": "ru_lenta", "name": "Lenta", "rss_url": "https://lenta.ru/rss/news"},
+        {"key": "ru_rt", "name": "RT Russian", "rss_url": "https://russian.rt.com/rss"},
+        {"key": "ru_gazeta", "name": "Gazeta", "rss_url": "https://www.gazeta.ru/export/rss/lenta.xml"},
+        {"key": "ru_kommersant", "name": "Kommersant", "rss_url": "https://www.kommersant.ru/RSS/news.xml"},
+        {"key": "ru_rg", "name": "Rossiyskaya Gazeta", "rss_url": "https://rg.ru/xml/index.xml"},
+        {"key": "ru_iz", "name": "Izvestia", "rss_url": "https://iz.ru/xml/rss/all.xml"},
+        {"key": "ru_interfax", "name": "Interfax", "rss_url": "https://www.interfax.ru/rss.asp"},
+    ],
+    "ar": [
+        {"key": "ar_aljazeera", "name": "Al Jazeera Arabic", "rss_url": "https://www.aljazeera.net/aljazeerarss/ar"},
+        {"key": "ar_alarabiya", "name": "Al Arabiya", "rss_url": "https://www.alarabiya.net/.mrss/ar.xml"},
+        {"key": "ar_skynewsarabia", "name": "Sky News Arabia", "rss_url": "https://www.skynewsarabia.com/web/rss"},
+        {"key": "ar_bbc", "name": "BBC Arabic", "rss_url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
+        {"key": "ar_france24", "name": "France24 Arabic", "rss_url": "https://www.france24.com/ar/rss"},
+        {"key": "ar_rt", "name": "RT Arabic", "rss_url": "https://arabic.rt.com/rss/"},
+        {"key": "ar_aawsat", "name": "Asharq Al-Awsat", "rss_url": "https://aawsat.com/home/feed"},
+        {"key": "ar_cnn", "name": "CNN Arabic", "rss_url": "https://arabic.cnn.com/feed"},
+        {"key": "ar_independent", "name": "Independent Arabic", "rss_url": "https://www.independentarabia.com/rss.xml"},
+    ],
+    "hi": [
+        {"key": "hi_jagran", "name": "Dainik Jagran", "rss_url": "https://www.jagran.com/rss/news/national.xml"},
+        {"key": "hi_bhaskar", "name": "Dainik Bhaskar", "rss_url": "https://www.bhaskar.com/rss-v1--category-1061.xml"},
+        {"key": "hi_livehindustan", "name": "Live Hindustan", "rss_url": "https://www.livehindustan.com/rss/national/rssfeed.xml"},
+        {"key": "hi_aajtak", "name": "Aaj Tak", "rss_url": "https://www.aajtak.in/rssfeeds/?id=home"},
+        {"key": "hi_amarujala", "name": "Amar Ujala", "rss_url": "https://www.amarujala.com/rss/national.xml"},
+        {"key": "hi_ndtvindia", "name": "NDTV India", "rss_url": "https://feeds.feedburner.com/ndtvkhabar-latest"},
+        {"key": "hi_bbchindi", "name": "BBC Hindi", "rss_url": "https://feeds.bbci.co.uk/hindi/rss.xml"},
+        {"key": "hi_zee", "name": "Zee News Hindi", "rss_url": "https://zeenews.india.com/hindi/rss/india-national-news.xml"},
+        {"key": "hi_abp", "name": "ABP Hindi", "rss_url": "https://www.abplive.com/home/feed"},
+    ],
+    "zh": [
+        {"key": "zh_xinhua", "name": "Xinhua", "rss_url": "http://www.news.cn/politics/news_politics.xml"},
+        {"key": "zh_chinanews", "name": "China News", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml"},
+        {"key": "zh_people", "name": "People CN", "rss_url": "http://www.people.com.cn/rss/world.xml"},
+        {"key": "zh_ifeng", "name": "ifeng", "rss_url": "https://news.ifeng.com/rss/index.xml"},
+        {"key": "zh_sohu", "name": "Sohu", "rss_url": "https://rss.sohu.com/rss/news.xml"},
+        {"key": "zh_cctv", "name": "CCTV", "rss_url": "http://news.cctv.com/rss/china.xml"},
+        {"key": "zh_globaltimes", "name": "Global Times CN", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml"},
+        {"key": "zh_stcn", "name": "STCN", "rss_url": "https://news.stcn.com/rss/index.xml"},
+        {"key": "zh_zaobao", "name": "Zaobao", "rss_url": "https://www.zaobao.com.sg/realtime/china/rss.xml"},
+    ],
+    "ja": [
+        {"key": "ja_nhk", "name": "NHK", "rss_url": "https://www3.nhk.or.jp/rss/news/cat0.xml"},
+        {"key": "ja_asahi", "name": "Asahi", "rss_url": "https://www.asahi.com/rss/asahi/newsheadlines.rdf"},
+        {"key": "ja_yomiuri", "name": "Yomiuri", "rss_url": "https://www.yomiuri.co.jp/rss/news/cat0.xml"},
+        {"key": "ja_mainichi", "name": "Mainichi", "rss_url": "https://mainichi.jp/rss/etc/mainichi-flash.rss"},
+        {"key": "ja_nikkei", "name": "Nikkei", "rss_url": "https://www.nikkei.com/rss/news.rss"},
+        {"key": "ja_sankei", "name": "Sankei", "rss_url": "https://www.sankei.com/rss/news/flash.xml"},
+        {"key": "ja_jiji", "name": "Jiji", "rss_url": "https://www.jiji.com/rss/ranking.rdf"},
+        {"key": "ja_tokyo", "name": "Tokyo Shimbun", "rss_url": "https://www.tokyo-np.co.jp/rss"},
+        {"key": "ja_47news", "name": "47News", "rss_url": "https://www.47news.jp/rss/all.xml"},
+    ],
+    "ko": [
+        {"key": "ko_yonhap", "name": "Yonhap", "rss_url": "https://www.yna.co.kr/rss/news.xml"},
+        {"key": "ko_hani", "name": "Hankyoreh", "rss_url": "https://www.hani.co.kr/rss/"},
+        {"key": "ko_khan", "name": "Kyunghyang", "rss_url": "https://www.khan.co.kr/rss/rssdata/total_news.xml"},
+        {"key": "ko_chosun", "name": "Chosun", "rss_url": "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml"},
+        {"key": "ko_joongang", "name": "JoongAng", "rss_url": "https://rss.joins.com/joins_news_list.xml"},
+        {"key": "ko_donga", "name": "DongA", "rss_url": "https://rss.donga.com/total.xml"},
+        {"key": "ko_kbs", "name": "KBS", "rss_url": "https://news.kbs.co.kr/rss/rss.xml"},
+        {"key": "ko_sbs", "name": "SBS", "rss_url": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01"},
+        {"key": "ko_mbc", "name": "MBC", "rss_url": "https://imnews.imbc.com/rss/news/news_00.xml"},
+    ],
+    "nl": [
+        {"key": "nl_nos", "name": "NOS", "rss_url": "https://feeds.nos.nl/nosnieuwsalgemeen"},
+        {"key": "nl_nu", "name": "NU", "rss_url": "https://www.nu.nl/rss/Algemeen"},
+        {"key": "nl_volkskrant", "name": "de Volkskrant", "rss_url": "https://www.volkskrant.nl/voorpagina/rss.xml"},
+        {"key": "nl_trouw", "name": "Trouw", "rss_url": "https://www.trouw.nl/rss.xml"},
+        {"key": "nl_nrc", "name": "NRC", "rss_url": "https://www.nrc.nl/rss/"},
+        {"key": "nl_telegraaf", "name": "De Telegraaf", "rss_url": "https://www.telegraaf.nl/rss"},
+        {"key": "nl_ad", "name": "AD", "rss_url": "https://www.ad.nl/rss.xml"},
+        {"key": "nl_parool", "name": "Parool", "rss_url": "https://www.parool.nl/rss.xml"},
+        {"key": "nl_rtl", "name": "RTL Nieuws", "rss_url": "https://www.rtlnieuws.nl/rss.xml"},
+    ],
+    "ro": [
+        {"key": "ro_hotnews", "name": "HotNews", "rss_url": "https://hotnews.ro/rss"},
+        {"key": "ro_digi24", "name": "Digi24", "rss_url": "https://www.digi24.ro/rss"},
+        {"key": "ro_g4media", "name": "G4Media", "rss_url": "https://www.g4media.ro/feed"},
+        {"key": "ro_adevarul", "name": "Adevarul", "rss_url": "https://adevarul.ro/rss"},
+        {"key": "ro_mediafax", "name": "Mediafax", "rss_url": "https://www.mediafax.ro/rss"},
+        {"key": "ro_protv", "name": "Stirile ProTV", "rss_url": "https://stirileprotv.ro/rss/"},
+        {"key": "ro_ziare", "name": "Ziare", "rss_url": "https://www.ziare.com/rss"},
+        {"key": "ro_antena3", "name": "Antena 3", "rss_url": "https://www.antena3.ro/rss"},
+        {"key": "ro_libertatea", "name": "Libertatea", "rss_url": "https://www.libertatea.ro/feed"},
+    ],
+    "vi": [
+        {"key": "vi_vnexpress", "name": "VNExpress", "rss_url": "https://vnexpress.net/rss/tin-moi-nhat.rss"},
+        {"key": "vi_tuoitre", "name": "Tuoi Tre", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss"},
+        {"key": "vi_thanhnien", "name": "Thanh Nien", "rss_url": "https://thanhnien.vn/rss/home.rss"},
+        {"key": "vi_vietnamnet", "name": "Vietnamnet", "rss_url": "https://vietnamnet.vn/rss/home.rss"},
+        {"key": "vi_dantri", "name": "Dan Tri", "rss_url": "https://dantri.com.vn/rss/home.rss"},
+        {"key": "vi_znews", "name": "ZNews", "rss_url": "https://znews.vn/rss/trang-chu.rss"},
+        {"key": "vi_vtc", "name": "VTC News", "rss_url": "https://vtcnews.vn/rss/feed.rss"},
+        {"key": "vi_nld", "name": "Nguoi Lao Dong", "rss_url": "https://nld.com.vn/rss/home.rss"},
+        {"key": "vi_tienphong", "name": "Tien Phong", "rss_url": "https://tienphong.vn/rss/home.rss"},
+    ],
+}
+
+
+def build_news_sources():
+    built = {}
+    for lang_key, source_list in TOP_NEWS_SOURCES.items():
+        for source in source_list:
+            built[source["key"]] = {
+                "name": source["name"],
+                "rss_url": source["rss_url"],
+                "language": lang_key,
+            }
+        market = GOOGLE_NEWS_MARKETS[lang_key]
+        built[f"{lang_key}_google_news"] = {
+            "name": f"Google News {LANGUAGE_CONFIGS[lang_key]['name']}",
+            "rss_url": (
+                f"https://news.google.com/rss?hl={market['hl']}"
+                f"&gl={market['gl']}&ceid={market['ceid']}"
+            ),
+            "language": lang_key,
+        }
+    return built
+
+
+NEWS_SOURCES = build_news_sources()
 
 
 def normalize_text(text: str) -> str:
@@ -335,6 +297,16 @@ def extract_article_text(html_text: str) -> str:
         html_text,
     )
 
+    # 1) JSON-LD articleBody is often the cleanest extraction path for modern sites.
+    json_ld_bodies = re.findall(
+        r'(?is)"articleBody"\s*:\s*"((?:\\.|[^"\\]){140,})"', cleaned
+    )
+    if json_ld_bodies:
+        json_ld_texts = [normalize_text(bytes(x, "utf-8").decode("unicode_escape")) for x in json_ld_bodies]
+        json_ld_texts = [t for t in json_ld_texts if len(t) >= 140]
+        if json_ld_texts:
+            return max(json_ld_texts, key=len)[:MAX_ARTICLE_CHARS]
+
     candidates = []
     for block in re.findall(r"(?is)<article\b[^>]*>(.*?)</article>", cleaned):
         block_paragraphs = [
@@ -347,15 +319,31 @@ def extract_article_text(html_text: str) -> str:
 
     if candidates:
         best = max(candidates, key=len)
-        if len(best) >= MIN_ARTICLE_CHARS:
+        if len(best) >= min(MIN_ARTICLE_CHARS, 220):
             return best[:MAX_ARTICLE_CHARS]
+
+    # 2) Many news sites keep body text in div/section/main containers.
+    content_blocks = re.findall(
+        r'(?is)<(?:div|section|main)\b[^>]*(?:id|class)\s*=\s*["\'][^"\']*(?:article|content|story|post|body)[^"\']*["\'][^>]*>(.*?)</(?:div|section|main)>',
+        cleaned,
+    )
+    for block in content_blocks:
+        block_paragraphs = [
+            _sanitize_html_fragment(p)
+            for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", block)
+        ]
+        block_paragraphs = [p for p in block_paragraphs if len(p) >= 40]
+        if block_paragraphs:
+            joined = " ".join(block_paragraphs)
+            if len(joined) >= 140:
+                return joined[:MAX_ARTICLE_CHARS]
 
     paragraphs = [
         _sanitize_html_fragment(p) for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", cleaned)
     ]
     filtered = []
     for p in paragraphs:
-        if len(p) < 60:
+        if len(p) < 40:
             continue
         low = p.lower()
         if "cookie" in low and "consent" in low:
@@ -366,7 +354,22 @@ def extract_article_text(html_text: str) -> str:
 
     if filtered:
         combined = " ".join(filtered)
-        return combined[:MAX_ARTICLE_CHARS]
+        if len(combined) >= 140:
+            return combined[:MAX_ARTICLE_CHARS]
+
+    # 3) Last resort: plain body text (can be noisy but better than empty).
+    body_match = re.search(r"(?is)<body\b[^>]*>(.*?)</body>", cleaned)
+    if body_match:
+        body_text = _sanitize_html_fragment(body_match.group(1))
+        body_text = re.sub(
+            r"\b(sign in|subscribe|cookie|accept all|advertisement|privacy policy)\b",
+            " ",
+            body_text,
+            flags=re.I,
+        )
+        body_text = normalize_text(body_text)
+        if len(body_text) >= 220:
+            return body_text[:MAX_ARTICLE_CHARS]
     return ""
 
 
@@ -381,7 +384,10 @@ def fetch_article_text(url: str) -> str:
                 "User-Agent": (
                     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                )
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "identity",
             },
         )
         with urlopen(req, timeout=ARTICLE_FETCH_TIMEOUT) as response:
@@ -689,6 +695,7 @@ def api_news():
         selected_sources=selected_sources,
     )
     result = []
+    source_type_counts = {"article": 0, "rss": 0}
     for item in entries:
         article_text = fetch_article_text(item["link"])
         if article_text:
@@ -697,7 +704,19 @@ def api_news():
         else:
             text_for_summary = f"{item['title']}. {item['description']}".strip()
             summary_input_type = "rss"
+            app.logger.info(
+                "article_fetch_fallback source=%s link=%s",
+                item["source_name"],
+                item["link"][:180],
+            )
         summary = summarize_text(text_for_summary, model_key, language)
+        source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
+        app.logger.info(
+            "summary_input_type=%s source=%s title=%s",
+            summary_input_type,
+            item["source_name"],
+            item["title"][:100],
+        )
         result.append(
             {
                 "title": item["title"],
@@ -712,6 +731,15 @@ def api_news():
                 "raw_text": text_for_summary if include_raw else None,
             }
         )
+
+    app.logger.info(
+        "request_done language=%s model=%s items=%s article_based=%s rss_based=%s",
+        language,
+        model_key,
+        len(result),
+        source_type_counts.get("article", 0),
+        source_type_counts.get("rss", 0),
+    )
 
     return jsonify(
         {
