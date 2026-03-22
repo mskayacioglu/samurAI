@@ -7,13 +7,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
   <body>
+    <header class="topbar">
+      <h1 class="page-title">
+        <span class="samur">samur</span><span class="ai">A<span class="latin-i">I</span></span>
+      </h1>
+    </header>
     <div class="app">
-      <div class="sticky-top">
-        <header class="hero">
-          <h1>samurAI</h1>
-        </header>
-
-        <section class="controls card">
+      <aside class="filter-rail card">
+        <div class="rail-head">
+          <p>Filters</p>
+        </div>
+        <section class="controls">
           <label for="language">Language</label>
           <select id="language">
             {% for key, language in languages.items() %}
@@ -24,7 +28,7 @@
           </select>
 
           <label for="sources">Sources</label>
-          <select id="sources" multiple></select>
+          <div id="sources" class="source-checklist"></div>
 
           <label for="model">Model</label>
           <select id="model">
@@ -36,13 +40,13 @@
           </select>
 
           <label for="limit">Per Source</label>
-          <input id="limit" type="number" value="1" min="1" max="15" />
-          <button id="refreshBtn">Refresh</button>
+          <input id="limit" type="number" value="5" min="1" max="15" />
+          <button id="refreshBtn">Refresh Feed</button>
         </section>
-      </div>
-
-      <main>
         <div id="status" class="status card"></div>
+      </aside>
+
+      <main class="content">
         <div id="feed" class="feed"></div>
       </main>
     </div>
@@ -79,16 +83,20 @@
         const languageSources = getSourcesByLanguage(languageEl.value);
         sourcesEl.innerHTML = "";
         languageSources.forEach(([key, source]) => {
-          const option = document.createElement("option");
-          option.value = key;
-          option.textContent = source.name;
-          option.selected = true;
-          sourcesEl.appendChild(option);
+          const row = document.createElement("label");
+          row.className = "source-option";
+          row.innerHTML = `
+            <input type="checkbox" value="${key}" checked />
+            <span>${source.name}</span>
+          `;
+          sourcesEl.appendChild(row);
         });
       }
 
       function getSelectedSources() {
-        return Array.from(sourcesEl.selectedOptions).map((option) => option.value);
+        return Array.from(sourcesEl.querySelectorAll("input[type='checkbox']:checked")).map(
+          (checkbox) => checkbox.value
+        );
       }
 
       function fmtDate(iso) {
@@ -127,8 +135,9 @@
           setStatus(
             `Loaded ${data.count} items in ${languageName} with model: ${data.model} (${selectedSources.length} source(s))`
           );
-          data.items.forEach((item) => {
+          data.items.forEach((item, index) => {
             const node = cardTpl.content.cloneNode(true);
+            node.querySelector(".news-card").style.setProperty("--i", String(index));
             node.querySelector(".source").textContent = item.source_name;
             node.querySelector(".time").textContent = fmtDate(item.published_at);
             node.querySelector(".title").textContent = item.title;

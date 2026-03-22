@@ -615,6 +615,8 @@ def gather_news(limit_per_source: int, language_key: str, selected_sources: list
     lang_sources = filter_sources_by_language(language_key)
     if selected_sources:
         keys = [k for k in selected_sources if k in lang_sources]
+        if not keys:
+            return []
     else:
         keys = list(lang_sources.keys())
 
