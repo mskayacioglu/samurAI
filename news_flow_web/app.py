@@ -275,6 +275,48 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def clean_article_for_summarization(text: str, language_key: str) -> str:
+    text = normalize_text(text)
+    if not text:
+        return ""
+
+    if language_key == "tr":
+        # Remove common Turkish news metadata fragments that hurt summary quality.
+        patterns = [
+            r"\bGiriş Tarihi\s*:\s*[^.]{1,80}",
+            r"\bSon Güncelleme\s*:\s*[^.]{1,80}",
+            r"\bYayınlanma Tarihi\s*:\s*[^.]{1,80}",
+            r"\bGüncelleme Tarihi\s*:\s*[^.]{1,80}",
+            r"\b[0-3]?\d\.[0-1]?\d\.\d{4}\s+[0-2]?\d:[0-5]\d\b",
+            r"\bFoto(?:ğraf|graf)\s*:\s*[^.]{1,100}",
+            r"\bKaynak\s*:\s*[^.]{1,100}",
+        ]
+        for pattern in patterns:
+            text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+
+    text = re.sub(r"\s+", " ", text).strip(" .,-")
+    return text
+
+
+def postprocess_summary(summary: str, title: str, language_key: str) -> str:
+    summary = normalize_text(summary)
+    title = normalize_text(title)
+    if not summary:
+        return summary
+
+    # In Turkish feeds, many articles begin with the exact headline and metadata.
+    # Remove duplicated headline prefix from generated summary when possible.
+    if language_key == "tr" and title:
+        low_summary = summary.lower()
+        low_title = title.lower()
+        if low_summary.startswith(low_title):
+            tail = summary[len(title) :].lstrip(" .:-")
+            if len(tail) >= 24:
+                summary = tail[0].upper() + tail[1:] if tail else summary
+
+    return clean_article_for_summarization(summary, language_key)
+
+
 def strip_html(text: str) -> str:
     if not text:
         return ""
@@ -752,6 +794,17 @@ def summarize_text(text: str, model_key: str, language_key: str):
                     "num_beams": 5,
                 }
             )
+            if language_key == "tr":
+                generate_kwargs.update(
+                    {
+                        "max_length": 84,
+                        "min_length": 26,
+                        "length_penalty": 1.3,
+                        "num_beams": 6,
+                        "no_repeat_ngram_size": 4,
+                        "repetition_penalty": 1.2,
+                    }
+                )
             if forced_bos_token_id is not None:
                 generate_kwargs["forced_bos_token_id"] = forced_bos_token_id
 
@@ -885,9 +938,18 @@ def api_news():
             )
             continue
 
-        text_for_summary = f"{item['title']}. {article_text}".strip()
+        article_text = clean_article_for_summarization(article_text, language)
+        if not article_text:
+            skipped_due_to_missing_article += 1
+            continue
+
+        if language == "tr":
+            text_for_summary = article_text
+        else:
+            text_for_summary = f"{item['title']}. {article_text}".strip()
         summary_input_type = "article"
         summary = summarize_text(text_for_summary, model_key, language)
+        summary = postprocess_summary(summary, item["title"], language)
         image_url = item.get("image_url") or fetch_article_image(item["link"])
         source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
         produced_per_source[source_key] = current_count + 1
