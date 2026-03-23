@@ -83,6 +83,8 @@ DEFAULT_LANGUAGE_KEY = os.getenv("LANGUAGE_KEY", "en")
 
 SUMMARY_CACHE = OrderedDict()
 SUMMARY_CACHE_LOCK = Lock()
+ARTICLE_SUMMARY_CACHE = OrderedDict()
+ARTICLE_SUMMARY_CACHE_LOCK = Lock()
 
 TOP_NEWS_SOURCES = {
     "en": [
@@ -894,6 +896,29 @@ def summarize_text_cached(text: str, model_key: str, language_key: str):
     return summary
 
 
+def summarize_article_cached(
+    text: str, model_key: str, language_key: str, article_key: str = ""
+):
+    normalized_key = (article_key or "").strip()
+    if normalized_key:
+        cache_key = (model_key, language_key, normalized_key)
+        with ARTICLE_SUMMARY_CACHE_LOCK:
+            cached = ARTICLE_SUMMARY_CACHE.get(cache_key)
+            if cached is not None:
+                ARTICLE_SUMMARY_CACHE.move_to_end(cache_key)
+                return cached
+
+    summary = summarize_text_cached(text, model_key, language_key)
+
+    if normalized_key:
+        with ARTICLE_SUMMARY_CACHE_LOCK:
+            ARTICLE_SUMMARY_CACHE[cache_key] = summary
+            ARTICLE_SUMMARY_CACHE.move_to_end(cache_key)
+            while len(ARTICLE_SUMMARY_CACHE) > max(1, SUMMARY_CACHE_SIZE):
+                ARTICLE_SUMMARY_CACHE.popitem(last=False)
+    return summary
+
+
 @lru_cache(maxsize=1)
 def load_translator():
     model_ref = (TRANSLATION_MODEL_REF or "").strip()
@@ -1024,7 +1049,7 @@ def index():
 
 @app.get("/api/news")
 def api_news():
-    limit = int(request.args.get("limit", 5))
+    limit = int(request.args.get("limit", 2))
     source = request.args.get("source", "")
     language = request.args.get("language", DEFAULT_LANGUAGE_KEY)
     output_language = request.args.get("output_language", language)
@@ -1102,7 +1127,12 @@ def api_news():
 
         text_for_summary = article_text
         summary_input_type = "article"
-        summary = summarize_text_cached(text_for_summary, model_key, language)
+        summary = summarize_article_cached(
+            text_for_summary,
+            model_key,
+            language,
+            article_key=item.get("link", ""),
+        )
         summary = postprocess_summary(summary, item["title"], language)
         if not summary:
             summary = normalize_text(
