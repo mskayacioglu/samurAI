@@ -20,6 +20,11 @@ except ImportError:
     requests = None
 
 try:
+    import feedparser
+except ImportError:
+    feedparser = None
+
+try:
     import trafilatura
 except ImportError:
     trafilatura = None
@@ -115,7 +120,15 @@ TOP_NEWS_SOURCES = {
         {"key": "tr_sozcu", "name": "Sozcu Gundem", "rss_url": "https://www.sozcu.com.tr/rss/gundem.xml"},
         {"key": "tr_sabah", "name": "Sabah", "rss_url": "https://www.sabah.com.tr/rss/anasayfa.xml"},
         {"key": "tr_cnnturk", "name": "CNN Turk", "rss_url": "https://www.cnnturk.com/feed/rss/turkiye/news"},
-        {"key": "tr_milliyet", "name": "Milliyet", "rss_url": "https://www.milliyet.com.tr/rss/rssnew/gundemr.xml"},
+        {
+            "key": "tr_milliyet",
+            "name": "Milliyet",
+            "rss_url": "https://www.milliyet.com.tr/rss/rssnew/gundem.xml",
+            "rss_urls": [
+                "https://www.milliyet.com.tr/rss/rssnew/gundem.xml",
+                "https://www.milliyet.com.tr/rss/rssnew/sondakikarss.xml",
+            ],
+        },
         {"key": "tr_cumhuriyet", "name": "Cumhuriyet", "rss_url": "https://www.cumhuriyet.com.tr/rss"},
         {"key": "tr_aa", "name": "Anadolu Ajansi", "rss_url": "https://www.aa.com.tr/tr/rss/default?cat=guncel"},
     ],
@@ -527,6 +540,9 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
             r"\b[0-3]?\d\.[0-1]?\d\.\d{4}\s+[0-2]?\d:[0-5]\d\b",
             r"\bFoto(?:ğraf|graf)\s*:\s*[^.]{1,100}",
             r"\bKaynak\s*:\s*[^.]{1,100}",
+            r"\b(?:SON DAK[İI]KA|EN ÇOK OKUNANLAR)\b.*$",
+            r"[^.]{0,120}\bhesab[ıiuü]ndan konuya ilişkin açıklama yapıldı\.?",
+            r"\b\w+n[ıiuü]n,\s*[A-Za-zÇĞİÖŞÜçğıöşü0-9'\" ]{0,40}hesab[ıiuü]ndan konuya ilişkin açıklama yapıldı\.?",
         ]
         for pattern in patterns:
             text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
@@ -536,6 +552,14 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
     if title:
         parts = re.split(r"(?<=[.!?])\s+", text)
         while parts and is_near_duplicate_text(parts[0], title):
+            # Keep lead sentences that include substantial new details after the title.
+            lead = normalize_text(parts[0])
+            title_norm = normalize_text(title)
+            lead_tokens = re.findall(r"\b[\w'-]+\b", lead.lower())
+            title_tokens = re.findall(r"\b[\w'-]+\b", title_norm.lower())
+            extra_tokens = max(0, len(lead_tokens) - len(title_tokens))
+            if extra_tokens >= 8 or len(lead) >= int(len(title_norm) * 1.45):
+                break
             parts = parts[1:]
         if parts:
             text = " ".join(parts)
@@ -561,7 +585,12 @@ def postprocess_summary(summary: str, title: str, language_key: str) -> str:
         elif is_near_duplicate_text(summary, title):
             return ""
 
-    return clean_article_for_summarization(summary, language_key, title=title)
+    processed = clean_article_for_summarization(summary, language_key, title=title)
+    if processed and not has_sentence_ending(processed) and has_sentence_ending(summary):
+        processed = processed.rstrip(" ,;:-")
+        if processed:
+            processed += "."
+    return processed
 
 
 def strip_html(text: str) -> str:
@@ -809,7 +838,20 @@ def extractive_fallback(text: str, max_chars: int = 280, avoid_text: str = "") -
     parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]
     usable_parts = [p for p in parts if not (avoid_text and is_near_duplicate_text(p, avoid_text))]
     parts = usable_parts if usable_parts else parts
-    picked = " ".join(parts[:2]).strip() if parts else text
+    picked_parts = []
+    for part in parts:
+        if not picked_parts:
+            if len(part) <= max_chars:
+                picked_parts.append(part)
+            else:
+                return part[:max_chars].rsplit(" ", 1)[0] + "..."
+            continue
+        combined = " ".join(picked_parts + [part]).strip()
+        if len(combined) <= max_chars:
+            picked_parts.append(part)
+        else:
+            break
+    picked = " ".join(picked_parts).strip() if picked_parts else (parts[0].strip() if parts else text)
     if len(picked) <= max_chars:
         return picked
     return picked[:max_chars].rsplit(" ", 1)[0] + "..."
@@ -822,6 +864,38 @@ def is_degenerate_summary(summary: str) -> bool:
     uniq_ratio = len(set(tokens)) / len(tokens)
     max_token_repeats = max(tokens.count(t) for t in set(tokens))
     return uniq_ratio < 0.38 or max_token_repeats > max(6, len(tokens) // 3)
+
+
+def has_sentence_ending(text: str) -> bool:
+    text = normalize_text(text)
+    if not text:
+        return False
+    return bool(re.search(r"[.!?…][\"')\]]*$", text)) or text.endswith(("。", "؟", "！", "؟", "…"))
+
+
+def finalize_summary_text(summary: str, source_text: str) -> str:
+    summary = normalize_text(summary)
+    if not summary:
+        return ""
+    if has_sentence_ending(summary):
+        return summary
+
+    last_end = max(summary.rfind("."), summary.rfind("!"), summary.rfind("?"), summary.rfind("…"))
+    if last_end >= int(len(summary) * 0.55):
+        candidate = summary[: last_end + 1].strip()
+        if len(candidate) >= 30:
+            return candidate
+
+    fallback = normalize_text(extractive_fallback(source_text, max_chars=320))
+    if fallback:
+        if not has_sentence_ending(fallback):
+            fallback = fallback.rstrip(" ,;:-")
+            if fallback:
+                fallback += "."
+        return fallback
+
+    summary = summary.rstrip(" ,;:-")
+    return summary + "." if summary else ""
 
 
 def parse_datetime(date_text: str):
@@ -913,24 +987,88 @@ def extract_image_from_html(html_text: str) -> str:
     return ""
 
 
+def parse_rss_with_feedparser(xml_content: bytes):
+    if feedparser is None:
+        return []
+    try:
+        parsed = feedparser.parse(xml_content)
+    except Exception:
+        return []
+
+    items = []
+    for entry in getattr(parsed, "entries", []) or []:
+        title = strip_html(getattr(entry, "title", "") or "")
+        link = normalize_text(getattr(entry, "link", "") or "")
+        if not link:
+            links = getattr(entry, "links", []) or []
+            for candidate in links:
+                href = normalize_text(getattr(candidate, "href", "") or "")
+                rel = normalize_text(getattr(candidate, "rel", "")).lower()
+                if href and rel in {"", "alternate"}:
+                    link = href
+                    break
+            if not link and links:
+                link = normalize_text(getattr(links[0], "href", "") or "")
+        if not title or not link:
+            continue
+
+        description = (
+            getattr(entry, "summary", "")
+            or getattr(entry, "description", "")
+            or getattr(entry, "content", "")
+        )
+        if isinstance(description, list) and description:
+            description = description[0].get("value", "")
+        description = strip_html(str(description or ""))
+        published = (
+            getattr(entry, "published", "")
+            or getattr(entry, "updated", "")
+            or getattr(entry, "pubDate", "")
+        )
+        image_url = ""
+        media_content = getattr(entry, "media_content", []) or []
+        if media_content:
+            image_url = normalize_text(media_content[0].get("url", "") or "")
+        if not image_url:
+            image_url = extract_image_url_from_html_fragment(str(description or ""))
+
+        items.append(
+            {
+                "title": title,
+                "link": link,
+                "description": description,
+                "image_url": image_url,
+                "published_at": parse_datetime(str(published or "")),
+            }
+        )
+    return items
+
+
 def parse_rss(xml_content: bytes):
     if not xml_content:
         return []
 
-    raw = xml_content
-    if isinstance(raw, bytes):
-        raw = raw.decode("utf-8", errors="ignore")
-    raw = str(raw or "")
-    raw = raw.lstrip("\ufeff \n\r\t")
-    if raw and not raw.startswith("<"):
-        idx = raw.find("<")
-        raw = raw[idx:] if idx >= 0 else raw
-
     try:
-        root = ET.fromstring(raw)
+        root = ET.fromstring(xml_content)
     except ET.ParseError:
+        raw = xml_content
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", errors="ignore")
+        raw = str(raw or "")
+        raw = raw.lstrip("\ufeff \n\r\t")
+        if raw and not raw.startswith("<"):
+            idx = raw.find("<")
+            raw = raw[idx:] if idx >= 0 else raw
+
         cleaned = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", raw)
-        root = ET.fromstring(cleaned)
+        cleaned = re.sub(r"&(?!#?\w+;)", "&amp;", cleaned)
+        try:
+            root = ET.fromstring(cleaned)
+        except ET.ParseError:
+            fallback_items = parse_rss_with_feedparser(xml_content)
+            if fallback_items:
+                return fallback_items
+            raise
     items = []
 
     channel = root.find("channel")
@@ -1155,11 +1293,31 @@ def summarize_text(text: str, model_key: str, language_key: str):
 
         summary = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
         summary = normalize_text(summary)
+        if summary and not has_sentence_ending(summary):
+            retry_kwargs = dict(generate_kwargs)
+            retry_max = min(180, int(retry_kwargs.get("max_length", DEFAULT_SUMMARY_TOKENS) * 1.4))
+            if retry_max > retry_kwargs.get("max_length", DEFAULT_SUMMARY_TOKENS):
+                retry_kwargs["max_length"] = retry_max
+                retry_min = retry_kwargs.get("min_length", 20)
+                retry_kwargs["min_length"] = min(retry_max - 8, retry_min + 8)
+                with torch.no_grad() if torch is not None else nullcontext():
+                    retry_ids = model.generate(
+                        **inputs,
+                        **retry_kwargs,
+                    )
+                retry_summary = normalize_text(
+                    tokenizer.decode(retry_ids[0], skip_special_tokens=True).strip()
+                )
+                if retry_summary and (
+                    has_sentence_ending(retry_summary) or len(retry_summary) > len(summary)
+                ):
+                    summary = retry_summary
+
         if is_degenerate_summary(summary):
-            return normalize_text(extractive_fallback(text))
-        return summary if summary else normalize_text(text[:240] + "...")
+            return finalize_summary_text(extractive_fallback(text), text)
+        return finalize_summary_text(summary, text) if summary else finalize_summary_text(text[:240] + "...", text)
     except Exception:
-        return normalize_text(extractive_fallback(text))
+        return finalize_summary_text(extractive_fallback(text), text)
 
 
 def summarize_text_cached(text: str, model_key: str, language_key: str):
