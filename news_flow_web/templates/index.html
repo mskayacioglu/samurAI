@@ -14,53 +14,70 @@
     </header>
     <div class="app">
       <aside class="filter-rail card">
-        <div class="rail-head">
-          <p>Filters</p>
-        </div>
-        <section class="controls">
-          <label for="language">Language</label>
-          <select id="language">
-            {% for key, language in languages.items() %}
-            <option value="{{ key }}" {% if key == default_language %}selected{% endif %}>
-              {{ language.name }}
-            </option>
-            {% endfor %}
-          </select>
-
-          <label for="outputLanguage">Output Language</label>
-          <select id="outputLanguage">
-            <option value="__source__">Original (Source Language)</option>
-            {% for key, language in languages.items() %}
-            <option value="{{ key }}">{{ language.name }}</option>
-            {% endfor %}
-          </select>
-
-          <label for="sources">Sources</label>
-          <div id="sources" class="source-checklist"></div>
-
-          <label for="model">Model</label>
-          <select id="model">
-            {% for key, _ in models.items() %}
-            <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
-              {{ key }}
-            </option>
-            {% endfor %}
-          </select>
-
-          <label for="limit">Per Source</label>
-          <input id="limit" type="number" value="2" min="1" max="15" />
-
-          <label>Image</label>
-          <div class="display-toggle" id="displayMode">
-            <label class="switch">
-              <input type="checkbox" id="showImages" checked />
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label">Show images</span>
+        <button
+          id="panelToggleBtn"
+          type="button"
+          class="panel-toggle-btn"
+          aria-label="Toggle filters panel"
+        >
+          <span class="toggle-glyph" aria-hidden="true">
+            <span class="toggle-chevron">&lt;</span>
+            <span class="toggle-lines">
+              <span class="line"></span>
+              <span class="line"></span>
+              <span class="line"></span>
+            </span>
+          </span>
+        </button>
+        <div class="rail-body">
+          <div class="rail-head">
+            <p>Filters</p>
           </div>
-          <button id="refreshBtn">Refresh Feed</button>
-        </section>
-        <div id="status" class="status card"></div>
+          <section class="controls">
+            <label for="language">Language</label>
+            <select id="language">
+              {% for key, language in languages.items() %}
+              <option value="{{ key }}" {% if key == default_language %}selected{% endif %}>
+                {{ language.name }}
+              </option>
+              {% endfor %}
+            </select>
+
+            <label for="outputLanguage">Output Language</label>
+            <select id="outputLanguage">
+              <option value="__source__">Original (Source Language)</option>
+              {% for key, language in languages.items() %}
+              <option value="{{ key }}">{{ language.name }}</option>
+              {% endfor %}
+            </select>
+
+            <label for="sources">Sources</label>
+            <div id="sources" class="source-checklist"></div>
+
+            <label for="model">Model</label>
+            <select id="model">
+              {% for key, _ in models.items() %}
+              <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
+                {{ key }}
+              </option>
+              {% endfor %}
+            </select>
+
+            <label for="limit">Per Source</label>
+            <input id="limit" type="number" value="2" min="1" max="15" />
+
+            <label>Image</label>
+            <div class="display-toggle" id="displayMode">
+              <label class="switch">
+                <input type="checkbox" id="showImages" checked />
+                <span class="slider"></span>
+              </label>
+              <span class="toggle-label">Show images</span>
+            </div>
+            <button id="refreshBtn">Refresh Feed</button>
+          </section>
+          <div id="status" class="status card"></div>
+        </div>
       </aside>
 
       <main class="content">
@@ -93,10 +110,14 @@
       const cardTpl = document.getElementById("cardTemplate");
       const displayModeEl = document.getElementById("displayMode");
       const showImagesEl = document.getElementById("showImages");
+      const appEl = document.querySelector(".app");
+      const panelToggleBtn = document.getElementById("panelToggleBtn");
+      const bodyEl = document.body;
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
       let latestItems = [];
       let lastRenderedColumnCount = null;
+      let panelHidden = false;
 
       function applyDisplayModeInPlace() {
         const showImages = !!showImagesEl?.checked;
@@ -152,12 +173,79 @@
         statusEl.className = isError ? "status card error" : "status card";
       }
 
+      function updatePanelToggleLabel() {
+        panelToggleBtn.classList.toggle("is-collapsed", panelHidden);
+        panelToggleBtn.setAttribute("aria-pressed", panelHidden ? "true" : "false");
+        panelToggleBtn.setAttribute(
+          "aria-label",
+          panelHidden ? "Show filters panel" : "Hide filters panel"
+        );
+      }
+
+      function syncLogoCenterState(options = {}) {
+        const { deferIfCollapsing = false } = options;
+        const shouldCenterLogo = panelHidden && !window.matchMedia("(max-width: 980px)").matches;
+        if (deferIfCollapsing && shouldCenterLogo) {
+          requestAnimationFrame(() => {
+            if (panelHidden) {
+              bodyEl.classList.add("three-col-mode");
+            }
+          });
+          return;
+        }
+        bodyEl.classList.toggle("three-col-mode", shouldCenterLogo);
+      }
+
+      function captureCardPositions() {
+        const positions = new Map();
+        feedEl.querySelectorAll(".news-card").forEach((card) => {
+          const key = card.dataset.itemKey;
+          if (key) {
+            positions.set(key, card.getBoundingClientRect());
+          }
+        });
+        return positions;
+      }
+
+      function animateCardsFromPreviousPositions(previousPositions) {
+        if (!previousPositions || previousPositions.size === 0) {
+          return;
+        }
+        feedEl.querySelectorAll(".news-card").forEach((card) => {
+          const key = card.dataset.itemKey;
+          if (!key || !previousPositions.has(key) || typeof card.animate !== "function") {
+            return;
+          }
+          const from = previousPositions.get(key);
+          const to = card.getBoundingClientRect();
+          const deltaX = Math.round(from.left - to.left);
+          const deltaY = Math.round(from.top - to.top);
+          if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+            return;
+          }
+          card.animate(
+            [
+              { transform: `translate(${deltaX}px, ${deltaY}px)` },
+              { transform: "translate(0, 0)" },
+            ],
+            {
+              duration: 1050,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            }
+          );
+        });
+      }
+
       function getFeedColumnCount() {
-        return window.matchMedia("(max-width: 980px)").matches ? 1 : 2;
+        if (window.matchMedia("(max-width: 980px)").matches) {
+          return 1;
+        }
+        return panelHidden ? 3 : 2;
       }
 
       function createFeedColumns(columnCount) {
         feedEl.innerHTML = "";
+        feedEl.style.setProperty("--feed-cols", String(columnCount));
         const columns = [];
         for (let i = 0; i < columnCount; i += 1) {
           const col = document.createElement("div");
@@ -169,7 +257,8 @@
         return columns;
       }
 
-      function renderFeed(items) {
+      function renderFeed(items, options = {}) {
+        const { previousPositions = null, disableEntryAnimation = false } = options;
         const showImages = !!showImagesEl?.checked;
         const columnCount = getFeedColumnCount();
         const columns = createFeedColumns(columnCount);
@@ -177,8 +266,13 @@
         items.forEach((item, index) => {
           const node = cardTpl.content.cloneNode(true);
           const card = node.querySelector(".news-card");
+          const itemKey = item.link || `${item.source_key || "source"}-${index}`;
+          card.dataset.itemKey = itemKey;
           card.style.setProperty("--i", String(index));
           card.dataset.showImages = showImages ? "1" : "0";
+          if (disableEntryAnimation) {
+            card.classList.add("no-entry-animation");
+          }
           node.querySelector(".source").textContent = item.source_name;
           node.querySelector(".time").textContent = fmtDate(item.published_at);
           node.querySelector(".title").textContent = item.title;
@@ -195,6 +289,28 @@
           link.textContent = "Open Source Article";
           columns[index % columnCount].appendChild(node);
         });
+
+        animateCardsFromPreviousPositions(previousPositions);
+      }
+
+      function setPanelHidden(nextHidden) {
+        if (panelHidden === nextHidden) {
+          return;
+        }
+        const previousPositions = captureCardPositions();
+        panelHidden = nextHidden;
+        appEl.classList.toggle("panel-collapsed", panelHidden);
+        updatePanelToggleLabel();
+        syncLogoCenterState({ deferIfCollapsing: true });
+
+        if (latestItems.length) {
+          requestAnimationFrame(() => {
+            renderFeed(latestItems, {
+              previousPositions,
+              disableEntryAnimation: true,
+            });
+          });
+        }
       }
 
       async function loadNews() {
@@ -233,6 +349,9 @@
       }
 
       refreshBtn.addEventListener("click", loadNews);
+      panelToggleBtn.addEventListener("click", () => {
+        setPanelHidden(!panelHidden);
+      });
       displayModeEl.addEventListener("change", () => {
         applyDisplayModeInPlace();
       });
@@ -256,12 +375,15 @@
         setStatus("Filters updated. Click Refresh Feed to apply.");
       });
       window.addEventListener("resize", () => {
+        syncLogoCenterState();
         const columnCount = getFeedColumnCount();
         if (latestItems.length && columnCount !== lastRenderedColumnCount) {
           renderFeed(latestItems);
         }
       });
       window.addEventListener("load", () => {
+        updatePanelToggleLabel();
+        syncLogoCenterState();
         renderSourceOptions();
         loadNews();
       });
