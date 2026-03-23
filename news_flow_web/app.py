@@ -525,6 +525,94 @@ def is_near_duplicate_text(a: str, b: str, threshold: float = 0.82) -> bool:
     return overlap >= threshold
 
 
+def contains_datetime_like(text: str) -> bool:
+    text = normalize_text(text).lower()
+    if not text:
+        return False
+
+    patterns = [
+        r"\b[0-3]?\d[./-][0-1]?\d[./-](?:\d{4}|\d{2})\b",
+        r"\b\d{4}[./-][0-1]?\d[./-][0-3]?\d\b",
+        r"\b[0-2]?\d:[0-5]\d\b",
+        r"\b(?:ocak|subat|şubat|mart|nisan|mayis|mayıs|haziran|temmuz|agustos|ağustos|eylul|eylül|ekim|kasim|kasım|aralik|aralık)\b",
+        r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b",
+    ]
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+
+def is_metadata_sentence(text: str, language_key: str) -> bool:
+    sentence = normalize_text(text).lower()
+    if not sentence:
+        return True
+    if len(sentence) > 240:
+        return False
+
+    common_markers = [
+        "last updated",
+        "updated:",
+        "published:",
+        "publish date",
+        "publication date",
+        "giriş tarihi",
+        "yayınlanma tarihi",
+        "yayinlanma tarihi",
+        "güncelleme tarihi",
+        "guncelleme tarihi",
+        "son güncelleme",
+        "son guncelleme",
+        "oluşturulma tarihi",
+        "olusturulma tarihi",
+    ]
+    tr_markers = [
+        "giriş:",
+        "yayınlanma:",
+        "yayinlanma:",
+        "güncellenme:",
+        "guncellenme:",
+        "saat:",
+    ]
+    markers = list(common_markers)
+    if language_key == "tr":
+        markers.extend(tr_markers)
+
+    has_marker = any(marker in sentence for marker in markers)
+    has_datetime = contains_datetime_like(sentence)
+
+    if has_marker and (has_datetime or len(sentence) <= 110):
+        return True
+    if has_datetime:
+        token_count = len(re.findall(r"\b[\w'-]+\b", sentence))
+        if token_count <= 7 and len(sentence) <= 64:
+            return True
+    if has_datetime and re.search(r"\b(date|updated|published|giriş|yayın|yayin|güncelle|guncelle|saat)\b", sentence):
+        return True
+    if re.fullmatch(r"[\d\s:./\-|]+", sentence):
+        return True
+    return False
+
+
+def strip_leading_metadata_prefix(text: str) -> str:
+    sentence = normalize_text(text)
+    if not sentence:
+        return ""
+
+    marker = (
+        r"(?:giriş(?: tarihi)?|yayınlanma tarihi|yayinlanma tarihi|"
+        r"son güncelleme|son guncelleme|güncelleme tarihi|guncelleme tarihi|"
+        r"updated|last updated|published)"
+    )
+    datetime_chunk = (
+        r"(?:"
+        r"\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})"
+        r"|\d{4}[./-]\d{1,2}[./-]\d{1,2}"
+        r"|(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s+\d{4}"
+        r"|(?:ocak|subat|şubat|mart|nisan|mayis|mayıs|haziran|temmuz|agustos|ağustos|eylul|eylül|ekim|kasim|kasım|aralik|aralık)\s+\d{1,2}\s+\d{4}"
+        r")(?:\s+[0-2]?\d:[0-5]\d)?"
+    )
+    pattern = rf"^\s*{marker}\s*[:\-]\s*(?:{datetime_chunk})?\s*(?:[|–—-]\s*)?"
+    return re.sub(pattern, "", sentence, flags=re.IGNORECASE).strip()
+
+
 def clean_article_for_summarization(text: str, language_key: str, title: str = "") -> str:
     text = normalize_text(text)
     if not text:
@@ -533,10 +621,10 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
     if language_key == "tr":
         # Remove common Turkish news metadata fragments that hurt summary quality.
         patterns = [
-            r"\bGiriş Tarihi\s*:\s*[^.]{1,80}",
-            r"\bSon Güncelleme\s*:\s*[^.]{1,80}",
-            r"\bYayınlanma Tarihi\s*:\s*[^.]{1,80}",
-            r"\bGüncelleme Tarihi\s*:\s*[^.]{1,80}",
+            r"\bGiriş Tarihi\s*:\s*(?:[0-3]?\d[./-][0-1]?\d[./-](?:\d{4}|\d{2})(?:\s+[0-2]?\d:[0-5]\d)?|[^|]{1,40})",
+            r"\bSon Güncelleme\s*:\s*(?:[0-3]?\d[./-][0-1]?\d[./-](?:\d{4}|\d{2})(?:\s+[0-2]?\d:[0-5]\d)?|[^|]{1,40})",
+            r"\bYayınlanma Tarihi\s*:\s*(?:[0-3]?\d[./-][0-1]?\d[./-](?:\d{4}|\d{2})(?:\s+[0-2]?\d:[0-5]\d)?|[^|]{1,40})",
+            r"\bGüncelleme Tarihi\s*:\s*(?:[0-3]?\d[./-][0-1]?\d[./-](?:\d{4}|\d{2})(?:\s+[0-2]?\d:[0-5]\d)?|[^|]{1,40})",
             r"\b[0-3]?\d\.[0-1]?\d\.\d{4}\s+[0-2]?\d:[0-5]\d\b",
             r"\bFoto(?:ğraf|graf)\s*:\s*[^.]{1,100}",
             r"\bKaynak\s*:\s*[^.]{1,100}",
@@ -563,6 +651,20 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
             parts = parts[1:]
         if parts:
             text = " ".join(parts)
+
+    # Filter out metadata-only sentences (timestamps, publish/update labels).
+    sentence_parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+|\s+\|\s+", text) if p.strip()]
+    if sentence_parts:
+        kept = []
+        for idx, sentence in enumerate(sentence_parts):
+            sentence = strip_leading_metadata_prefix(sentence)
+            if not sentence:
+                continue
+            if is_metadata_sentence(sentence, language_key) and idx < 6:
+                continue
+            kept.append(sentence)
+        if kept:
+            text = " ".join(kept)
 
     text = re.sub(r"\s+", " ", text).strip(" .,-")
     return text
