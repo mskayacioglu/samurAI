@@ -12,6 +12,39 @@
         <span class="theme-icon theme-icon-moon" aria-hidden="true">☾</span>
         <span class="theme-icon theme-icon-sun" aria-hidden="true">☼</span>
       </button>
+      <button
+        id="columnToggleBtn"
+        type="button"
+        class="column-toggle-btn"
+        data-cols="2"
+        aria-label="Cycle columns"
+      >
+        <span class="column-icon icon-1" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" focusable="false">
+            <rect x="4" y="3.5" width="16" height="6.5" rx="2"></rect>
+            <rect x="4" y="11.5" width="16" height="4.5" rx="2"></rect>
+            <rect x="4" y="17.5" width="16" height="3" rx="1.5"></rect>
+          </svg>
+        </span>
+        <span class="column-icon icon-2" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" focusable="false">
+            <rect x="3.5" y="3.5" width="8.5" height="7" rx="2"></rect>
+            <rect x="3.5" y="11.5" width="8.5" height="9" rx="2"></rect>
+            <rect x="13" y="3.5" width="7.5" height="11" rx="2"></rect>
+            <rect x="13" y="15.5" width="7.5" height="5" rx="2"></rect>
+          </svg>
+        </span>
+        <span class="column-icon icon-3" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" focusable="false">
+            <rect x="2.5" y="3.5" width="6" height="6.5" rx="1.8"></rect>
+            <rect x="2.5" y="11" width="6" height="9.5" rx="1.8"></rect>
+            <rect x="9.5" y="3.5" width="5" height="10" rx="1.8"></rect>
+            <rect x="9.5" y="14.5" width="5" height="6" rx="1.8"></rect>
+            <rect x="15.5" y="3.5" width="6" height="5" rx="1.8"></rect>
+            <rect x="15.5" y="9.5" width="6" height="11" rx="1.8"></rect>
+          </svg>
+        </span>
+      </button>
       <h1 class="page-title">
         <span class="samur">samur</span><span class="ai">A<span class="latin-i">I</span></span>
       </h1>
@@ -121,12 +154,14 @@
       const appEl = document.querySelector(".app");
       const panelToggleBtn = document.getElementById("panelToggleBtn");
       const themeToggleBtn = document.getElementById("themeToggleBtn");
+      const columnToggleBtn = document.getElementById("columnToggleBtn");
       const bodyEl = document.body;
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
       let latestItems = [];
       let lastRenderedColumnCount = null;
       let panelHidden = false;
+      let manualColumnCount = 2;
       let activeTheme = "dark";
 
       function setTheme(themeName) {
@@ -228,6 +263,11 @@
         bodyEl.classList.toggle("three-col-mode", shouldCenterLogo);
       }
 
+      function updateColumnToggleLabel() {
+        columnToggleBtn.dataset.cols = String(manualColumnCount);
+        columnToggleBtn.setAttribute("aria-label", `Columns: ${manualColumnCount}. Click to cycle`);
+      }
+
       function captureCardPositions() {
         const positions = new Map();
         feedEl.querySelectorAll(".news-card").forEach((card) => {
@@ -272,7 +312,7 @@
         if (window.matchMedia("(max-width: 980px)").matches) {
           return 1;
         }
-        return panelHidden ? 3 : 2;
+        return manualColumnCount;
       }
 
       function createFeedColumns(columnCount) {
@@ -293,6 +333,9 @@
         const { previousPositions = null, disableEntryAnimation = false } = options;
         const showImages = !!showImagesEl?.checked;
         const columnCount = getFeedColumnCount();
+        const singleColumnDesktop =
+          columnCount === 1 && !window.matchMedia("(max-width: 980px)").matches;
+        feedEl.classList.toggle("single-column-layout", singleColumnDesktop);
         const columns = createFeedColumns(columnCount);
 
         items.forEach((item, index) => {
@@ -312,8 +355,10 @@
           const imageEl = node.querySelector(".news-image");
           if (showImages && item.image_url) {
             imageEl.src = item.image_url;
+            card.dataset.hasImage = "1";
           } else {
             imageEl.classList.add("hidden");
+            card.dataset.hasImage = "0";
           }
 
           const link = node.querySelector(".source-link");
@@ -393,6 +438,17 @@
       themeToggleBtn.addEventListener("click", () => {
         setTheme(activeTheme === "light" ? "dark" : "light");
       });
+      columnToggleBtn.addEventListener("click", () => {
+        const previousPositions = captureCardPositions();
+        manualColumnCount = manualColumnCount === 3 ? 1 : manualColumnCount + 1;
+        updateColumnToggleLabel();
+        if (latestItems.length) {
+          renderFeed(latestItems, {
+            previousPositions,
+            disableEntryAnimation: true,
+          });
+        }
+      });
       displayModeEl.addEventListener("change", () => {
         applyDisplayModeInPlace();
       });
@@ -424,6 +480,7 @@
       });
       window.addEventListener("load", () => {
         initTheme();
+        updateColumnToggleLabel();
         updatePanelToggleLabel();
         syncLogoCenterState();
         renderSourceOptions();
