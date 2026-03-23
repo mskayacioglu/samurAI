@@ -304,9 +304,8 @@ def postprocess_summary(summary: str, title: str, language_key: str) -> str:
     if not summary:
         return summary
 
-    # In Turkish feeds, many articles begin with the exact headline and metadata.
     # Remove duplicated headline prefix from generated summary when possible.
-    if language_key == "tr" and title:
+    if title:
         low_summary = summary.lower()
         low_title = title.lower()
         if low_summary.startswith(low_title):
@@ -943,10 +942,7 @@ def api_news():
             skipped_due_to_missing_article += 1
             continue
 
-        if language == "tr":
-            text_for_summary = article_text
-        else:
-            text_for_summary = f"{item['title']}. {article_text}".strip()
+        text_for_summary = article_text
         summary_input_type = "article"
         summary = summarize_text(text_for_summary, model_key, language)
         summary = postprocess_summary(summary, item["title"], language)
