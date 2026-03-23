@@ -342,11 +342,28 @@ body.light-theme .card {
 }
 
 .status {
-  margin: 0 0 12px;
-  padding: 12px 14px;
+  margin: 0;
+  padding: 9px 11px;
   color: var(--muted);
-  font-size: 0.93rem;
+  font-size: 0.82rem;
+  line-height: 1.38;
+  white-space: pre-line;
   border-left: 3px solid rgba(48, 106, 248, 0.65);
+  background: rgba(30, 32, 36, 0.46);
+  border: 1px solid rgba(67, 70, 75, 0.62);
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 95;
+  width: min(240px, calc(100vw - 24px));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+body.light-theme .status {
+  background: rgba(255, 255, 255, 0.58);
+  border-color: rgba(210, 217, 227, 0.75);
 }
 
 .status.error {
@@ -559,26 +576,95 @@ body.light-theme .rail-head {
   font-size: 0.88rem;
 }
 
+.control-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.control-inline > label {
+  margin-top: 0;
+  margin-right: 8px;
+}
+
+.control-inline-number input[type="number"] {
+  width: 74px;
+  min-width: 74px;
+  text-align: center;
+  margin-left: auto;
+}
+
+.control-inline-toggle .display-toggle {
+  margin-left: auto;
+}
+
+.control-inline-toggle .toggle-label {
+  display: none;
+}
+
 .controls select,
-.controls input,
+.controls input:not([type="checkbox"]),
 .controls button {
   border-radius: 10px;
   border: 1px solid var(--border);
   padding: 0 11px;
   font-size: 0.92rem;
   font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .controls select,
-.controls input {
+.controls input:not([type="checkbox"]) {
   height: 38px;
   color: var(--text);
   background: rgb(24, 25, 28);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 body.light-theme .controls select,
-body.light-theme .controls input {
+body.light-theme .controls input:not([type="checkbox"]) {
   background: rgb(255, 255, 255);
+}
+
+.controls select {
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 11px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.controls select:hover,
+.controls input:not([type="checkbox"]):hover {
+  border-color: rgba(48, 106, 248, 0.45);
+}
+
+.controls select:focus-visible,
+.controls input:not([type="checkbox"]):focus-visible {
+  outline: none;
+  border-color: rgba(48, 106, 248, 0.85);
+  box-shadow: 0 0 0 3px rgba(48, 106, 248, 0.2);
+}
+
+.controls input[type="number"]:not([type="checkbox"]) {
+  -moz-appearance: textfield;
+}
+
+.controls input[type="number"]:not([type="checkbox"])::-webkit-outer-spin-button,
+.controls input[type="number"]:not([type="checkbox"])::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .source-checklist {
@@ -600,7 +686,7 @@ body.light-theme .source-checklist {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text);
+  color: var(--muted);
   font-size: 0.9rem;
   margin-bottom: 8px;
   cursor: pointer;
@@ -610,11 +696,66 @@ body.light-theme .source-checklist {
   margin-bottom: 0;
 }
 
-.source-option input {
-  accent-color: var(--blue);
+.source-option span {
+  color: var(--muted);
+  transition: color 140ms ease;
+}
+
+.source-option input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   width: 16px;
   height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  max-height: 16px;
+  flex: 0 0 16px;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  line-height: 0;
   margin: 0;
+  border: 1.5px solid rgba(138, 147, 161, 0.95);
+  border-radius: 999px;
+  background: rgb(143, 151, 165);
+  display: inline-block;
+  vertical-align: middle;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.source-option input[type="checkbox"]:hover {
+  border-color: rgba(48, 106, 248, 0.6);
+}
+
+.source-option input[type="checkbox"]:focus-visible {
+  outline: none;
+  border-color: rgba(48, 106, 248, 0.85);
+  box-shadow: 0 0 0 3px rgba(48, 106, 248, 0.2);
+}
+
+.source-option input[type="checkbox"]:checked {
+  border-color: rgba(48, 106, 248, 0.9);
+  background: var(--blue);
+}
+
+.source-option input[type="checkbox"]:checked + span {
+  color: var(--text);
+}
+
+body.light-theme .source-option input[type="checkbox"] {
+  border-color: rgba(166, 176, 191, 0.95);
+  background: rgb(198, 206, 218);
+}
+
+body.light-theme .source-option input[type="checkbox"]:checked {
+  border-color: rgba(48, 106, 248, 0.9);
+  background: var(--blue);
 }
 
 .display-toggle {
@@ -669,8 +810,8 @@ body.light-theme .slider {
 }
 
 .switch input:checked + .slider {
-  background: rgba(48, 106, 248, 0.25);
-  border-color: rgba(48, 106, 248, 0.7);
+  background: var(--blue);
+  border-color: var(--blue);
 }
 
 .switch input:checked + .slider::before {
@@ -715,10 +856,6 @@ body.light-theme .theme-toggle-btn:hover {
 
 .controls button:active {
   transform: scale(0.98);
-}
-
-.filter-rail .status {
-  margin-top: auto;
 }
 
 @keyframes card-in {
@@ -781,6 +918,12 @@ body.light-theme .theme-toggle-btn:hover {
 
   .app.panel-collapsed .content {
     width: 100%;
+  }
+
+  .status {
+    right: 8px;
+    bottom: 8px;
+    width: min(220px, calc(100vw - 16px));
   }
 
   .feed {
