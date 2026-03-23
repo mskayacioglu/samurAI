@@ -39,15 +39,37 @@ body::before {
   pointer-events: none;
   background: linear-gradient(
     180deg,
-    rgba(30, 31, 33, 0.78) 0%,
-    rgba(30, 31, 33, 0.52) 42%,
-    rgba(30, 31, 33, 0) 50%,
+    rgba(30, 31, 33, 0.82) 0%,
+    rgba(30, 31, 33, 0.78) 10%,
+    rgba(30, 31, 33, 0.72) 22%,
+    rgba(30, 31, 33, 0.64) 34%,
+    rgba(30, 31, 33, 0.52) 46%,
+    rgba(30, 31, 33, 0.38) 58%,
+    rgba(30, 31, 33, 0.24) 70%,
+    rgba(30, 31, 33, 0.12) 82%,
+    rgba(30, 31, 33, 0.04) 92%,
     rgba(30, 31, 33, 0) 100%
   );
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 50%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.95) 28%,
+    rgba(0, 0, 0, 0.82) 48%,
+    rgba(0, 0, 0, 0.56) 66%,
+    rgba(0, 0, 0, 0.24) 84%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.95) 28%,
+    rgba(0, 0, 0, 0.82) 48%,
+    rgba(0, 0, 0, 0.56) 66%,
+    rgba(0, 0, 0, 0.24) 84%,
+    transparent 100%
+  );
 }
 
 .topbar {
