@@ -1,9 +1,12 @@
 import os
 import re
+import hashlib
+from collections import OrderedDict
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from html import unescape
+from threading import Lock
 from urllib.parse import unquote, urlparse
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -49,6 +52,14 @@ ARTICLE_FETCH_TIMEOUT = int(os.getenv("ARTICLE_FETCH_TIMEOUT", "8"))
 MAX_ARTICLE_CHARS = int(os.getenv("MAX_ARTICLE_CHARS", "12000"))
 MIN_ARTICLE_CHARS = int(os.getenv("MIN_ARTICLE_CHARS", "500"))
 SOURCE_OVERSAMPLE_FACTOR = int(os.getenv("SOURCE_OVERSAMPLE_FACTOR", "4"))
+SUMMARY_CACHE_SIZE = int(os.getenv("SUMMARY_CACHE_SIZE", "4096"))
+DEFAULT_TRANSLATION_MODEL_PATH = os.path.join(
+    PROJECT_ROOT, "models", "mbart-large-50-many-to-many-mmt"
+)
+TRANSLATION_MODEL_REF = os.getenv(
+    "TRANSLATION_MODEL_REF",
+    DEFAULT_TRANSLATION_MODEL_PATH if os.path.isdir(DEFAULT_TRANSLATION_MODEL_PATH) else "",
+)
 
 LANGUAGE_CONFIGS = {
     "en": {"name": "English", "mbart_lang": "en_XX"},
@@ -69,6 +80,9 @@ LANGUAGE_CONFIGS = {
 }
 
 DEFAULT_LANGUAGE_KEY = os.getenv("LANGUAGE_KEY", "en")
+
+SUMMARY_CACHE = OrderedDict()
+SUMMARY_CACHE_LOCK = Lock()
 
 TOP_NEWS_SOURCES = {
     "en": [
@@ -856,6 +870,101 @@ def summarize_text(text: str, model_key: str, language_key: str):
         return normalize_text(extractive_fallback(text))
 
 
+def summarize_text_cached(text: str, model_key: str, language_key: str):
+    text = normalize_text(text)
+    if not text:
+        return ""
+
+    text_hash = hashlib.sha1(text.encode("utf-8")).hexdigest()
+    cache_key = (model_key, language_key, text_hash)
+
+    with SUMMARY_CACHE_LOCK:
+        cached = SUMMARY_CACHE.get(cache_key)
+        if cached is not None:
+            SUMMARY_CACHE.move_to_end(cache_key)
+            return cached
+
+    summary = summarize_text(text, model_key, language_key)
+
+    with SUMMARY_CACHE_LOCK:
+        SUMMARY_CACHE[cache_key] = summary
+        SUMMARY_CACHE.move_to_end(cache_key)
+        while len(SUMMARY_CACHE) > max(1, SUMMARY_CACHE_SIZE):
+            SUMMARY_CACHE.popitem(last=False)
+    return summary
+
+
+@lru_cache(maxsize=1)
+def load_translator():
+    model_ref = (TRANSLATION_MODEL_REF or "").strip()
+    if not model_ref:
+        return None, None, None
+    if AutoTokenizer is None or AutoModelForSeq2SeqLM is None:
+        raise RuntimeError("transformers and torch are required for translation.")
+
+    local_only = os.path.isdir(model_ref)
+    tokenizer = AutoTokenizer.from_pretrained(model_ref, local_files_only=local_only)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_ref, local_files_only=local_only)
+
+    if torch is not None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = model.to(device)
+        if device == "cpu":
+            model = model.float()
+    else:
+        device = "cpu"
+    model.eval()
+    return tokenizer, model, device
+
+
+def translate_text(text: str, source_language_key: str, target_language_key: str) -> str:
+    text = normalize_text(text)
+    if not text or source_language_key == target_language_key:
+        return text
+
+    source_lang_code = LANGUAGE_CONFIGS.get(source_language_key, {}).get("mbart_lang")
+    target_lang_code = LANGUAGE_CONFIGS.get(target_language_key, {}).get("mbart_lang")
+    if not source_lang_code or not target_lang_code:
+        return text
+
+    try:
+        tokenizer, model, device = load_translator()
+        if not tokenizer or not model:
+            return text
+
+        if hasattr(tokenizer, "src_lang"):
+            tokenizer.src_lang = source_lang_code
+
+        inputs = tokenizer(
+            text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=768,
+        )
+        if torch is not None:
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        generate_kwargs = {
+            "max_length": 280,
+            "num_beams": 4,
+            "no_repeat_ngram_size": 3,
+            "repetition_penalty": 1.05,
+            "early_stopping": True,
+        }
+        lang_code_to_id = getattr(tokenizer, "lang_code_to_id", {})
+        if target_lang_code in lang_code_to_id:
+            generate_kwargs["forced_bos_token_id"] = lang_code_to_id[target_lang_code]
+
+        with torch.no_grad() if torch is not None else nullcontext():
+            output_ids = model.generate(**inputs, **generate_kwargs)
+
+        translated = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+        translated = normalize_text(translated)
+        return translated if translated else text
+    except Exception:
+        return text
+
+
 class nullcontext:
     def __enter__(self):
         return self
@@ -918,15 +1027,28 @@ def api_news():
     limit = int(request.args.get("limit", 5))
     source = request.args.get("source", "")
     language = request.args.get("language", DEFAULT_LANGUAGE_KEY)
+    output_language = request.args.get("output_language", language)
     model_key = request.args.get("model", DEFAULT_MODEL_KEY)
     sources_param = request.args.get("sources", "")
     include_raw = request.args.get("include_raw", "false").lower() == "true"
+    translation_model_active = bool((TRANSLATION_MODEL_REF or "").strip())
 
     if language not in LANGUAGE_CONFIGS:
         return (
             jsonify(
                 {
                     "error": "Invalid language key",
+                    "languages": list(LANGUAGE_CONFIGS.keys()),
+                }
+            ),
+            400,
+        )
+
+    if output_language not in LANGUAGE_CONFIGS:
+        return (
+            jsonify(
+                {
+                    "error": "Invalid output language key",
                     "languages": list(LANGUAGE_CONFIGS.keys()),
                 }
             ),
@@ -980,12 +1102,21 @@ def api_news():
 
         text_for_summary = article_text
         summary_input_type = "article"
-        summary = summarize_text(text_for_summary, model_key, language)
+        summary = summarize_text_cached(text_for_summary, model_key, language)
         summary = postprocess_summary(summary, item["title"], language)
         if not summary:
             summary = normalize_text(
                 extractive_fallback(text_for_summary, avoid_text=item["title"])
             )
+
+        title_out = item["title"]
+        summary_out = summary
+        translation_applied = False
+        if output_language != language:
+            title_out = translate_text(item["title"], language, output_language)
+            summary_out = translate_text(summary, language, output_language)
+            translation_applied = bool(title_out != item["title"] or summary_out != summary)
+
         image_url = item.get("image_url") or fetch_article_image(item["link"])
         source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
         produced_per_source[source_key] = current_count + 1
@@ -997,8 +1128,8 @@ def api_news():
         )
         result.append(
             {
-                "title": item["title"],
-                "summary": summary,
+                "title": title_out,
+                "summary": summary_out,
                 "source_name": item["source_name"],
                 "source_key": item["source_key"],
                 "link": item["link"],
@@ -1007,14 +1138,19 @@ def api_news():
                 ),
                 "image_url": image_url,
                 "summary_input_type": summary_input_type,
+                "source_language": language,
+                "output_language": output_language,
+                "translation_applied": translation_applied,
                 "raw_text": text_for_summary if include_raw else None,
             }
         )
 
     app.logger.info(
-        "request_done language=%s model=%s items=%s article_based=%s rss_based=%s skipped_no_article=%s",
+        "request_done language=%s output_language=%s model=%s translation_model=%s items=%s article_based=%s rss_based=%s skipped_no_article=%s",
         language,
+        output_language,
         model_key,
+        TRANSLATION_MODEL_REF if translation_model_active else "disabled",
         len(result),
         source_type_counts.get("article", 0),
         source_type_counts.get("rss", 0),
@@ -1026,6 +1162,8 @@ def api_news():
             "count": len(result),
             "model": model_key,
             "language": language,
+            "output_language": output_language,
+            "translation_model": TRANSLATION_MODEL_REF if translation_model_active else None,
             "available_models": list(MODEL_PATHS.keys()),
             "available_sources": NEWS_SOURCES,
             "available_languages": LANGUAGE_CONFIGS,

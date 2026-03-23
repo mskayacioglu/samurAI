@@ -27,6 +27,14 @@
             {% endfor %}
           </select>
 
+          <label for="outputLanguage">Output Language</label>
+          <select id="outputLanguage">
+            <option value="__source__">Original (Source Language)</option>
+            {% for key, language in languages.items() %}
+            <option value="{{ key }}">{{ language.name }}</option>
+            {% endfor %}
+          </select>
+
           <label for="sources">Sources</label>
           <div id="sources" class="source-checklist"></div>
 
@@ -76,6 +84,7 @@
     <script>
       const languageEl = document.getElementById("language");
       const sourcesEl = document.getElementById("sources");
+      const outputLanguageEl = document.getElementById("outputLanguage");
       const modelEl = document.getElementById("model");
       const limitEl = document.getElementById("limit");
       const refreshBtn = document.getElementById("refreshBtn");
@@ -87,6 +96,21 @@
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
 
+      function applyDisplayModeInPlace() {
+        const showImages = !!showImagesEl?.checked;
+        feedEl.dataset.showImages = showImages ? "1" : "0";
+        feedEl.querySelectorAll(".news-card").forEach((card) => {
+          card.dataset.showImages = showImages ? "1" : "0";
+        });
+        feedEl.querySelectorAll(".news-image").forEach((img) => {
+          if (!showImages) {
+            img.classList.add("hidden");
+          } else if (img.src) {
+            img.classList.remove("hidden");
+          }
+        });
+      }
+
       function getSourcesByLanguage(languageKey) {
         return Object.entries(allSources).filter(([, source]) => source.language === languageKey);
       }
@@ -94,11 +118,12 @@
       function renderSourceOptions() {
         const languageSources = getSourcesByLanguage(languageEl.value);
         sourcesEl.innerHTML = "";
-        languageSources.forEach(([key, source]) => {
+        languageSources.forEach(([key, source], index) => {
+          const checkedAttr = index < 5 ? "checked" : "";
           const row = document.createElement("label");
           row.className = "source-option";
           row.innerHTML = `
-            <input type="checkbox" value="${key}" checked />
+            <input type="checkbox" value="${key}" ${checkedAttr} />
             <span>${source.name}</span>
           `;
           sourcesEl.appendChild(row);
@@ -127,10 +152,13 @@
 
       async function loadNews() {
         const showImages = !!showImagesEl?.checked;
-        feedEl.dataset.showImages = showImages ? "1" : "0";
+        applyDisplayModeInPlace();
         const selectedSources = getSelectedSources();
+        const outputLanguage =
+          outputLanguageEl.value === "__source__" ? languageEl.value : outputLanguageEl.value;
         const params = new URLSearchParams({
           language: languageEl.value,
+          output_language: outputLanguage,
           sources: selectedSources.join(","),
           model: modelEl.value,
           limit: limitEl.value,
@@ -146,8 +174,10 @@
           }
 
           const languageName = allLanguages[data.language]?.name || data.language;
+          const outputLanguageName =
+            allLanguages[data.output_language]?.name || data.output_language;
           setStatus(
-            `Loaded ${data.count} items in ${languageName} with model: ${data.model} (${selectedSources.length} source(s))`
+            `Loaded ${data.count} items. Source: ${languageName} | Output: ${outputLanguageName} | Model: ${data.model} (${selectedSources.length} source(s))`
           );
           data.items.forEach((item, index) => {
             const node = cardTpl.content.cloneNode(true);
@@ -176,10 +206,27 @@
       }
 
       refreshBtn.addEventListener("click", loadNews);
-      displayModeEl.addEventListener("change", loadNews);
+      displayModeEl.addEventListener("change", () => {
+        applyDisplayModeInPlace();
+      });
       languageEl.addEventListener("change", () => {
+        if (outputLanguageEl.value !== "__source__" && outputLanguageEl.value === languageEl.value) {
+          outputLanguageEl.value = "__source__";
+        }
         renderSourceOptions();
-        loadNews();
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      outputLanguageEl.addEventListener("change", () => {
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      modelEl.addEventListener("change", () => {
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      limitEl.addEventListener("change", () => {
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      sourcesEl.addEventListener("change", () => {
+        setStatus("Filters updated. Click Refresh Feed to apply.");
       });
       window.addEventListener("load", () => {
         renderSourceOptions();

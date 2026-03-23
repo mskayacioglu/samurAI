@@ -37,6 +37,7 @@ Desteklenen model anahtarları:
 
 Not:
 - İngilizce dışı dillerde API, otomatik olarak `mbart50_xlsum` modelini kullanır.
+- Çeviri katmanı opsiyoneldir. `TRANSLATION_MODEL_REF` set edilirse başlık/özet hedef dile çevrilebilir.
 - Varsayılan dil `en` olarak gelir; `LANGUAGE_KEY` ile değiştirilebilir.
 - Her dil için 10 yerel/populer dogrudan kaynak tanimlidir (Google News yok).
 - Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
@@ -118,6 +119,7 @@ Script varsayılan olarak `news_flow_web/eval_runs/run_<timestamp>/` altında ü
 
 Sorgu parametreleri:
 - `language`: `en`, `tr`, `fr`, `de`, `es`, `it`, `ru`, `ar`, `hi`, `zh`, `ja`, `ko`, `nl`, `ro`, `vi`
+- `output_language`: çıktı dili (verilmezse `language` ile aynı kabul edilir)
 - `sources`: virgülle ayrılmış kaynak anahtarları (ör: `bbc_world,guardian_world`)
 - `source`: geriye dönük tekil kaynak parametresi (`sources` verilmezse kullanılır)
 - `model`: model anahtarı
@@ -131,5 +133,13 @@ Yanıtta her haber için `summary_input_type` alanı bulunur:
 Örnek:
 
 ```bash
-curl "http://localhost:8000/api/news?language=tr&sources=google_news_tr&model=mbart50_xlsum&limit=3"
+curl "http://localhost:8000/api/news?language=tr&output_language=en&sources=tr_trthaber,tr_hurriyet&model=mbart50_xlsum&limit=3"
+```
+
+## Çeviri modelini açma
+
+Varsayılan durumda uygulama, varsa local `models/mbart-large-50-many-to-many-mmt` klasörünü otomatik çeviri modeli olarak kullanır. Elle set etmek için:
+
+```bash
+TRANSLATION_MODEL_REF=facebook/mbart-large-50-many-to-many-mmt python app.py
 ```
