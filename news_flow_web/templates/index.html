@@ -8,6 +8,10 @@
   </head>
   <body>
     <header class="topbar">
+      <button id="themeToggleBtn" type="button" class="theme-toggle-btn" aria-label="Toggle theme">
+        <span class="theme-icon theme-icon-moon" aria-hidden="true">☾</span>
+        <span class="theme-icon theme-icon-sun" aria-hidden="true">☼</span>
+      </button>
       <h1 class="page-title">
         <span class="samur">samur</span><span class="ai">A<span class="latin-i">I</span></span>
       </h1>
@@ -112,12 +116,36 @@
       const showImagesEl = document.getElementById("showImages");
       const appEl = document.querySelector(".app");
       const panelToggleBtn = document.getElementById("panelToggleBtn");
+      const themeToggleBtn = document.getElementById("themeToggleBtn");
       const bodyEl = document.body;
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
       let latestItems = [];
       let lastRenderedColumnCount = null;
       let panelHidden = false;
+      let activeTheme = "dark";
+
+      function setTheme(themeName) {
+        activeTheme = themeName === "light" ? "light" : "dark";
+        const isLight = activeTheme === "light";
+        bodyEl.classList.toggle("light-theme", isLight);
+        themeToggleBtn.classList.toggle("is-light", isLight);
+        themeToggleBtn.setAttribute(
+          "aria-label",
+          isLight ? "Switch to dark theme" : "Switch to light theme"
+        );
+        try {
+          localStorage.setItem("samurai_theme", activeTheme);
+        } catch {}
+      }
+
+      function initTheme() {
+        let savedTheme = "dark";
+        try {
+          savedTheme = localStorage.getItem("samurai_theme") || "dark";
+        } catch {}
+        setTheme(savedTheme);
+      }
 
       function applyDisplayModeInPlace() {
         const showImages = !!showImagesEl?.checked;
@@ -352,6 +380,9 @@
       panelToggleBtn.addEventListener("click", () => {
         setPanelHidden(!panelHidden);
       });
+      themeToggleBtn.addEventListener("click", () => {
+        setTheme(activeTheme === "light" ? "dark" : "light");
+      });
       displayModeEl.addEventListener("change", () => {
         applyDisplayModeInPlace();
       });
@@ -382,6 +413,7 @@
         }
       });
       window.addEventListener("load", () => {
+        initTheme();
         updatePanelToggleLabel();
         syncLogoCenterState();
         renderSourceOptions();
