@@ -844,6 +844,25 @@ def find_child_text(item: ET.Element, tag_candidates):
     return ""
 
 
+def _local_name(tag: str) -> str:
+    if not tag:
+        return ""
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def find_child_text_anyns(item: ET.Element, name_candidates):
+    wanted = {str(name or "").strip().lower() for name in name_candidates if str(name or "").strip()}
+    if not wanted:
+        return ""
+    for child in list(item):
+        if _local_name(child.tag) not in wanted:
+            continue
+        text = "".join(child.itertext()).strip() if child is not None else ""
+        if text:
+            return text
+    return ""
+
+
 def extract_image_url_from_html_fragment(fragment: str) -> str:
     if not fragment:
         return ""
@@ -895,7 +914,23 @@ def extract_image_from_html(html_text: str) -> str:
 
 
 def parse_rss(xml_content: bytes):
-    root = ET.fromstring(xml_content)
+    if not xml_content:
+        return []
+
+    raw = xml_content
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="ignore")
+    raw = str(raw or "")
+    raw = raw.lstrip("\ufeff \n\r\t")
+    if raw and not raw.startswith("<"):
+        idx = raw.find("<")
+        raw = raw[idx:] if idx >= 0 else raw
+
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        cleaned = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", raw)
+        root = ET.fromstring(cleaned)
     items = []
 
     channel = root.find("channel")
@@ -907,11 +942,35 @@ def parse_rss(xml_content: bytes):
 
     for item in raw_items:
         title = find_child_text(item, ["title", "{http://www.w3.org/2005/Atom}title"])
+        if not title:
+            title = find_child_text_anyns(item, ["title"])
         link = find_child_text(item, ["link"])
+        if not link:
+            link = find_child_text_anyns(item, ["link"])
         if not link:
             atom_link = item.find("{http://www.w3.org/2005/Atom}link")
             if atom_link is not None:
                 link = atom_link.attrib.get("href", "")
+        if not link:
+            atom_links = [
+                node
+                for node in item.findall("{http://www.w3.org/2005/Atom}link")
+                if normalize_text(node.attrib.get("href", ""))
+            ]
+            if atom_links:
+                preferred = next(
+                    (
+                        node
+                        for node in atom_links
+                        if normalize_text(node.attrib.get("rel", "")).lower() in {"", "alternate"}
+                    ),
+                    atom_links[0],
+                )
+                link = normalize_text(preferred.attrib.get("href", ""))
+        if not link:
+            guid = find_child_text_anyns(item, ["guid", "id"])
+            if guid and guid.startswith("http"):
+                link = guid
 
         description = find_child_text(
             item,
@@ -922,10 +981,14 @@ def parse_rss(xml_content: bytes):
                 "{http://purl.org/rss/1.0/modules/content/}encoded",
             ],
         )
+        if not description:
+            description = find_child_text_anyns(item, ["description", "summary", "content", "encoded"])
         pub_date = find_child_text(
             item,
             ["pubDate", "published", "{http://www.w3.org/2005/Atom}updated"],
         )
+        if not pub_date:
+            pub_date = find_child_text_anyns(item, ["pubdate", "published", "updated"])
         image_url = extract_image_url_from_rss_item(item, description)
 
         if not title or not link:
@@ -1397,6 +1460,7 @@ def api_news():
 
         text_for_summary = article_text
         summary_input_type = "article"
+
         summary = summarize_article_cached(
             text_for_summary,
             model_key,
