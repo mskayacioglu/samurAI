@@ -275,7 +275,28 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def clean_article_for_summarization(text: str, language_key: str) -> str:
+def _word_set(text: str) -> set:
+    return {t for t in re.findall(r"\b[\w'-]+\b", (text or "").lower()) if len(t) > 2}
+
+
+def is_near_duplicate_text(a: str, b: str, threshold: float = 0.82) -> bool:
+    a_norm = normalize_text(a).lower()
+    b_norm = normalize_text(b).lower()
+    if not a_norm or not b_norm:
+        return False
+    if a_norm == b_norm:
+        return True
+
+    a_words = _word_set(a_norm)
+    b_words = _word_set(b_norm)
+    if not a_words or not b_words:
+        return False
+
+    overlap = len(a_words & b_words) / max(1, min(len(a_words), len(b_words)))
+    return overlap >= threshold
+
+
+def clean_article_for_summarization(text: str, language_key: str, title: str = "") -> str:
     text = normalize_text(text)
     if not text:
         return ""
@@ -293,6 +314,15 @@ def clean_article_for_summarization(text: str, language_key: str) -> str:
         ]
         for pattern in patterns:
             text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+
+    # Many pages repeat the exact headline at the start of the article body.
+    # Remove leading sentence(s) that are near-duplicates of the title.
+    if title:
+        parts = re.split(r"(?<=[.!?])\s+", text)
+        while parts and is_near_duplicate_text(parts[0], title):
+            parts = parts[1:]
+        if parts:
+            text = " ".join(parts)
 
     text = re.sub(r"\s+", " ", text).strip(" .,-")
     return text
@@ -312,8 +342,10 @@ def postprocess_summary(summary: str, title: str, language_key: str) -> str:
             tail = summary[len(title) :].lstrip(" .:-")
             if len(tail) >= 24:
                 summary = tail[0].upper() + tail[1:] if tail else summary
+        elif is_near_duplicate_text(summary, title):
+            return ""
 
-    return clean_article_for_summarization(summary, language_key)
+    return clean_article_for_summarization(summary, language_key, title=title)
 
 
 def strip_html(text: str) -> str:
@@ -554,11 +586,13 @@ def resolve_article_url(url: str, headers: dict) -> str:
     return url
 
 
-def extractive_fallback(text: str, max_chars: int = 280) -> str:
+def extractive_fallback(text: str, max_chars: int = 280, avoid_text: str = "") -> str:
     text = re.sub(r"\s+", " ", text or "").strip()
     if not text:
         return ""
-    parts = re.split(r"(?<=[.!?])\s+", text)
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]
+    usable_parts = [p for p in parts if not (avoid_text and is_near_duplicate_text(p, avoid_text))]
+    parts = usable_parts if usable_parts else parts
     picked = " ".join(parts[:2]).strip() if parts else text
     if len(picked) <= max_chars:
         return picked
@@ -937,7 +971,9 @@ def api_news():
             )
             continue
 
-        article_text = clean_article_for_summarization(article_text, language)
+        article_text = clean_article_for_summarization(
+            article_text, language, title=item["title"]
+        )
         if not article_text:
             skipped_due_to_missing_article += 1
             continue
@@ -946,6 +982,10 @@ def api_news():
         summary_input_type = "article"
         summary = summarize_text(text_for_summary, model_key, language)
         summary = postprocess_summary(summary, item["title"], language)
+        if not summary:
+            summary = normalize_text(
+                extractive_fallback(text_for_summary, avoid_text=item["title"])
+            )
         image_url = item.get("image_url") or fetch_article_image(item["link"])
         source_type_counts[summary_input_type] = source_type_counts.get(summary_input_type, 0) + 1
         produced_per_source[source_key] = current_count + 1
