@@ -95,6 +95,8 @@
       const showImagesEl = document.getElementById("showImages");
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
+      let latestItems = [];
+      let lastRenderedColumnCount = null;
 
       function applyDisplayModeInPlace() {
         const showImages = !!showImagesEl?.checked;
@@ -150,8 +152,52 @@
         statusEl.className = isError ? "status card error" : "status card";
       }
 
-      async function loadNews() {
+      function getFeedColumnCount() {
+        return window.matchMedia("(max-width: 980px)").matches ? 1 : 2;
+      }
+
+      function createFeedColumns(columnCount) {
+        feedEl.innerHTML = "";
+        const columns = [];
+        for (let i = 0; i < columnCount; i += 1) {
+          const col = document.createElement("div");
+          col.className = "feed-column";
+          columns.push(col);
+          feedEl.appendChild(col);
+        }
+        lastRenderedColumnCount = columnCount;
+        return columns;
+      }
+
+      function renderFeed(items) {
         const showImages = !!showImagesEl?.checked;
+        const columnCount = getFeedColumnCount();
+        const columns = createFeedColumns(columnCount);
+
+        items.forEach((item, index) => {
+          const node = cardTpl.content.cloneNode(true);
+          const card = node.querySelector(".news-card");
+          card.style.setProperty("--i", String(index));
+          card.dataset.showImages = showImages ? "1" : "0";
+          node.querySelector(".source").textContent = item.source_name;
+          node.querySelector(".time").textContent = fmtDate(item.published_at);
+          node.querySelector(".title").textContent = item.title;
+          node.querySelector(".summary").textContent = item.summary;
+          const imageEl = node.querySelector(".news-image");
+          if (showImages && item.image_url) {
+            imageEl.src = item.image_url;
+          } else {
+            imageEl.classList.add("hidden");
+          }
+
+          const link = node.querySelector(".source-link");
+          link.href = item.link;
+          link.textContent = "Open Source Article";
+          columns[index % columnCount].appendChild(node);
+        });
+      }
+
+      async function loadNews() {
         applyDisplayModeInPlace();
         const selectedSources = getSelectedSources();
         const outputLanguage =
@@ -179,27 +225,8 @@
           setStatus(
             `Loaded ${data.count} items. Source: ${languageName} | Output: ${outputLanguageName} | Model: ${data.model} (${selectedSources.length} source(s))`
           );
-          data.items.forEach((item, index) => {
-            const node = cardTpl.content.cloneNode(true);
-            const card = node.querySelector(".news-card");
-            card.style.setProperty("--i", String(index));
-            card.dataset.showImages = showImages ? "1" : "0";
-            node.querySelector(".source").textContent = item.source_name;
-            node.querySelector(".time").textContent = fmtDate(item.published_at);
-            node.querySelector(".title").textContent = item.title;
-            node.querySelector(".summary").textContent = item.summary;
-            const imageEl = node.querySelector(".news-image");
-            if (showImages && item.image_url) {
-              imageEl.src = item.image_url;
-            } else {
-              imageEl.classList.add("hidden");
-            }
-
-            const link = node.querySelector(".source-link");
-            link.href = item.link;
-            link.textContent = "Open Source Article";
-            feedEl.appendChild(node);
-          });
+          latestItems = data.items || [];
+          renderFeed(latestItems);
         } catch (error) {
           setStatus(error.message, true);
         }
@@ -227,6 +254,12 @@
       });
       sourcesEl.addEventListener("change", () => {
         setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      window.addEventListener("resize", () => {
+        const columnCount = getFeedColumnCount();
+        if (latestItems.length && columnCount !== lastRenderedColumnCount) {
+          renderFeed(latestItems);
+        }
       });
       window.addEventListener("load", () => {
         renderSourceOptions();

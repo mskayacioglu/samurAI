@@ -131,20 +131,26 @@ body::before {
 }
 
 .feed {
-  column-count: 2;
-  column-gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.feed-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .news-card {
-  display: inline-block;
+  display: block;
   width: 100%;
-  margin: 0 0 12px;
   background: linear-gradient(180deg, rgba(41, 42, 46, 0.94), rgba(37, 38, 41, 0.82));
   border: 1px solid rgba(67, 70, 75, 0.86);
   border-radius: 15px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.23);
   padding: 15px 16px;
-  break-inside: avoid;
   animation: card-in 360ms ease both;
   animation-delay: calc(var(--i, 0) * 55ms);
   transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease;
@@ -428,7 +434,7 @@ body::before {
   }
 
   .feed {
-    column-count: 1;
+    grid-template-columns: 1fr;
   }
 
   .source-checklist {
