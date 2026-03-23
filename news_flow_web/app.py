@@ -658,7 +658,13 @@ def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
         with urlopen(rss_url, timeout=10) as response:
             xml_content = response.read()
         entries = parse_rss(xml_content)
-    except (URLError, ET.ParseError, TimeoutError):
+    except (URLError, ET.ParseError, TimeoutError, ConnectionResetError, OSError) as exc:
+        app.logger.warning(
+            "rss_fetch_error source=%s url=%s error=%s",
+            source_key,
+            rss_url,
+            str(exc)[:180],
+        )
         entries = []
 
     for entry in entries:
