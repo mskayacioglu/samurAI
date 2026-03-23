@@ -39,7 +39,7 @@ Not:
 - İngilizce dışı dillerde API, otomatik olarak `mbart50_xlsum` modelini kullanır.
 - Çeviri katmanı opsiyoneldir. `TRANSLATION_MODEL_REF` set edilirse başlık/özet hedef dile çevrilebilir.
 - Varsayılan dil `en` olarak gelir; `LANGUAGE_KEY` ile değiştirilebilir.
-- Her dil için 10 yerel/populer dogrudan kaynak tanimlidir (Google News yok).
+- Her dil için dogrudan RSS kaynaklari tanimlidir; bazi dillerde ek spor kaynaklari da vardir (Google News yok).
 - Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
 - Özetleme girdisinde model sadece haber gövdesini alır (başlık modele verilmez); başlık arayüzde ayrı gösterilir.
 - `SOURCE_OVERSAMPLE_FACTOR` (varsayılan `4`) ile kaynak başına daha fazla aday link çekilip, çekilemeyen haberler yerine yeni adaylar denenir.
@@ -120,6 +120,9 @@ Script varsayılan olarak `news_flow_web/eval_runs/run_<timestamp>/` altında ü
 Sorgu parametreleri:
 - `language`: `en`, `tr`, `fr`, `de`, `es`, `it`, `ru`, `ar`, `hi`, `zh`, `ja`, `ko`, `nl`, `ro`, `vi`
 - `output_language`: çıktı dili (verilmezse `language` ile aynı kabul edilir)
+- `topic`: haber türü filtresi (`general`, `world`, `sports` veya `__all__`)
+- `region`: bölge filtresi (örn. `europe`, `asia`, `middle_east`, `north_america`, `global` veya `__all__`)
+- `country`: ülke filtresi (ISO-2 kodu, örn. `TR`, `US`, `GB` veya `__all__`)
 - `sources`: virgülle ayrılmış kaynak anahtarları (ör: `bbc_world,guardian_world`)
 - `source`: geriye dönük tekil kaynak parametresi (`sources` verilmezse kullanılır)
 - `model`: model anahtarı
@@ -133,7 +136,7 @@ Yanıtta her haber için `summary_input_type` alanı bulunur:
 Örnek:
 
 ```bash
-curl "http://localhost:8000/api/news?language=tr&output_language=en&sources=tr_trthaber,tr_hurriyet&model=mbart50_xlsum&limit=3"
+curl "http://localhost:8000/api/news?language=tr&output_language=en&topic=sports&region=europe&country=TR&sources=tr_ntvspor,tr_hurriyet_spor,tr_sabah_spor&model=mbart50_xlsum&limit=3"
 ```
 
 ## Çeviri modelini açma

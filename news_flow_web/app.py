@@ -60,6 +60,14 @@ TRANSLATION_MODEL_REF = os.getenv(
     "TRANSLATION_MODEL_REF",
     DEFAULT_TRANSLATION_MODEL_PATH if os.path.isdir(DEFAULT_TRANSLATION_MODEL_PATH) else "",
 )
+RSS_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
+}
 
 LANGUAGE_CONFIGS = {
     "en": {"name": "English", "mbart_lang": "en_XX"},
@@ -270,15 +278,207 @@ TOP_NEWS_SOURCES = {
 }
 
 
+TOPICAL_SOURCE_EXTENSIONS = {
+    "en": [
+        {
+            "key": "en_bbc_sport",
+            "name": "BBC Sport",
+            "rss_url": "https://feeds.bbci.co.uk/sport/rss.xml",
+            "topic": "sports",
+            "country": "GB",
+        },
+        {
+            "key": "en_espn",
+            "name": "ESPN",
+            "rss_url": "https://www.espn.com/espn/rss/news",
+            "topic": "sports",
+            "country": "US",
+        },
+    ],
+    "tr": [
+        {
+            "key": "tr_ntvspor",
+            "name": "NTV Spor",
+            "rss_url": "https://www.ntvspor.net/rss",
+            "rss_urls": [
+                "https://www.ntvspor.net/rss",
+                "https://www.ntvspor.net/haber/rss",
+            ],
+            "topic": "sports",
+            "country": "TR",
+        },
+        {
+            "key": "tr_hurriyet_spor",
+            "name": "Hurriyet Spor",
+            "rss_url": "https://www.hurriyet.com.tr/rss/sporarena",
+            "rss_urls": [
+                "https://www.hurriyet.com.tr/rss/sporarena",
+                "https://www.hurriyet.com.tr/rss/spor",
+            ],
+            "topic": "sports",
+            "country": "TR",
+        },
+        {
+            "key": "tr_sabah_spor",
+            "name": "Sabah Spor",
+            "rss_url": "https://www.sabah.com.tr/rss/spor.xml",
+            "topic": "sports",
+            "country": "TR",
+        },
+    ],
+    "de": [
+        {
+            "key": "de_kicker",
+            "name": "Kicker",
+            "rss_url": "https://newsfeed.kicker.de/news/aktuell",
+            "topic": "sports",
+            "country": "DE",
+        }
+    ],
+    "es": [
+        {
+            "key": "es_marca",
+            "name": "Marca",
+            "rss_url": "https://e00-marca.uecdn.es/rss/portada.xml",
+            "topic": "sports",
+            "country": "ES",
+        }
+    ],
+    "it": [
+        {
+            "key": "it_gazzetta",
+            "name": "La Gazzetta dello Sport",
+            "rss_url": "https://www.gazzetta.it/rss/home.xml",
+            "topic": "sports",
+            "country": "IT",
+        }
+    ],
+}
+
+TOPIC_CONFIGS = {
+    "general": {"name": "General"},
+    "world": {"name": "World"},
+    "sports": {"name": "Sports"},
+}
+
+REGION_CONFIGS = {
+    "global": {"name": "Global"},
+    "europe": {"name": "Europe"},
+    "asia": {"name": "Asia"},
+    "middle_east": {"name": "Middle East"},
+    "north_america": {"name": "North America"},
+}
+
+COUNTRY_CONFIGS = {
+    "DE": {"name": "Germany", "region": "europe"},
+    "ES": {"name": "Spain", "region": "europe"},
+    "FR": {"name": "France", "region": "europe"},
+    "GB": {"name": "United Kingdom", "region": "europe"},
+    "IN": {"name": "India", "region": "asia"},
+    "IT": {"name": "Italy", "region": "europe"},
+    "JP": {"name": "Japan", "region": "asia"},
+    "KR": {"name": "South Korea", "region": "asia"},
+    "NL": {"name": "Netherlands", "region": "europe"},
+    "QA": {"name": "Qatar", "region": "middle_east"},
+    "RO": {"name": "Romania", "region": "europe"},
+    "RU": {"name": "Russia", "region": "europe"},
+    "SA": {"name": "Saudi Arabia", "region": "middle_east"},
+    "SG": {"name": "Singapore", "region": "asia"},
+    "TR": {"name": "Turkey", "region": "europe"},
+    "US": {"name": "United States", "region": "north_america"},
+    "VN": {"name": "Vietnam", "region": "asia"},
+    "CN": {"name": "China", "region": "asia"},
+}
+
+LANGUAGE_DEFAULT_COUNTRY = {
+    "ar": "QA",
+    "de": "DE",
+    "en": "US",
+    "es": "ES",
+    "fr": "FR",
+    "hi": "IN",
+    "it": "IT",
+    "ja": "JP",
+    "ko": "KR",
+    "nl": "NL",
+    "ro": "RO",
+    "ru": "RU",
+    "tr": "TR",
+    "vi": "VN",
+    "zh": "CN",
+}
+
+SOURCE_COUNTRY_HINTS = {
+    "aljazeera_world": "QA",
+    "bbc_world": "GB",
+    "cnn_world": "US",
+    "dw_world": "DE",
+    "fox_world": "US",
+    "guardian_world": "GB",
+    "npr_world": "US",
+    "nyt_world": "US",
+    "reuters_world": "US",
+    "sky_world": "GB",
+    "zh_zaobao": "SG",
+}
+
+
+def infer_topic(source_key: str, source_cfg: dict) -> str:
+    explicit = re.sub(r"\s+", " ", str(source_cfg.get("topic", "") or "")).strip().lower()
+    if explicit in TOPIC_CONFIGS:
+        return explicit
+
+    source_text = " ".join(
+        [
+            re.sub(r"\s+", " ", str(source_key or "")).strip().lower(),
+            re.sub(r"\s+", " ", str(source_cfg.get("name", "") or "")).strip().lower(),
+            re.sub(r"\s+", " ", str(source_cfg.get("rss_url", "") or "")).strip().lower(),
+        ]
+    )
+    if re.search(r"\b(sport|spor|football|soccer|basket|tennis)\b", source_text):
+        return "sports"
+    if "world" in source_text:
+        return "world"
+    return "general"
+
+
+def infer_country(language_key: str, source_key: str, source_cfg: dict) -> str:
+    explicit = re.sub(r"\s+", " ", str(source_cfg.get("country", "") or "")).strip().upper()
+    if explicit in COUNTRY_CONFIGS:
+        return explicit
+    if source_key in SOURCE_COUNTRY_HINTS:
+        return SOURCE_COUNTRY_HINTS[source_key]
+    return LANGUAGE_DEFAULT_COUNTRY.get(language_key, "US")
+
+
+def infer_region(country_key: str, source_cfg: dict) -> str:
+    explicit = re.sub(r"\s+", " ", str(source_cfg.get("region", "") or "")).strip().lower()
+    if explicit in REGION_CONFIGS:
+        return explicit
+    return COUNTRY_CONFIGS.get(country_key, {}).get("region", "global")
+
+
 def build_news_sources():
     built = {}
     for lang_key, source_list in TOP_NEWS_SOURCES.items():
-        for source in source_list:
-            built[source["key"]] = {
+        merged_sources = list(source_list) + TOPICAL_SOURCE_EXTENSIONS.get(lang_key, [])
+        for source in merged_sources:
+            source_key = source["key"]
+            if source_key in built:
+                continue
+            country = infer_country(lang_key, source_key, source)
+            topic = infer_topic(source_key, source)
+            region = infer_region(country, source)
+            built[source_key] = {
                 "name": source["name"],
                 "rss_url": source["rss_url"],
                 "language": lang_key,
+                "topic": topic,
+                "country": country,
+                "region": region,
             }
+            if source.get("rss_urls"):
+                built[source_key]["rss_urls"] = list(source["rss_urls"])
     return built
 
 
@@ -744,19 +944,46 @@ def parse_rss(xml_content: bytes):
 
 
 def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
-    rss_url = source_cfg["rss_url"]
-    try:
-        with urlopen(rss_url, timeout=10) as response:
-            xml_content = response.read()
-        entries = parse_rss(xml_content)
-    except (URLError, ET.ParseError, TimeoutError, ConnectionResetError, OSError) as exc:
-        app.logger.warning(
-            "rss_fetch_error source=%s url=%s error=%s",
-            source_key,
-            rss_url,
-            str(exc)[:180],
-        )
-        entries = []
+    rss_urls = source_cfg.get("rss_urls") or [source_cfg["rss_url"]]
+    entries = []
+
+    for rss_url in rss_urls:
+        try:
+            xml_content = b""
+            if requests is not None:
+                response = requests.get(
+                    rss_url,
+                    headers=RSS_FETCH_HEADERS,
+                    timeout=10,
+                    allow_redirects=True,
+                )
+                if response.ok:
+                    xml_content = response.content
+
+            if not xml_content:
+                req = Request(rss_url, headers=RSS_FETCH_HEADERS)
+                with urlopen(req, timeout=10) as response:
+                    xml_content = response.read()
+
+            entries = parse_rss(xml_content)
+            if entries:
+                break
+        except (URLError, ET.ParseError, TimeoutError, ConnectionResetError, OSError) as exc:
+            app.logger.warning(
+                "rss_fetch_error source=%s url=%s error=%s",
+                source_key,
+                rss_url,
+                str(exc)[:180],
+            )
+            continue
+        except Exception as exc:
+            app.logger.warning(
+                "rss_fetch_error source=%s url=%s error=%s",
+                source_key,
+                rss_url,
+                str(exc)[:180],
+            )
+            continue
 
     for entry in entries:
         entry["source_key"] = source_key
@@ -998,16 +1225,50 @@ class nullcontext:
         return False
 
 
-def filter_sources_by_language(language_key: str):
-    return {
-        key: source
-        for key, source in NEWS_SOURCES.items()
-        if source.get("language") == language_key
-    }
+def normalize_filter_value(value: str) -> str:
+    normalized = normalize_text(value).lower()
+    if normalized in {"", "__all__", "all"}:
+        return ""
+    return normalized
 
 
-def gather_news(limit_per_source: int, language_key: str, selected_sources: list):
-    lang_sources = filter_sources_by_language(language_key)
+def filter_sources(
+    language_key: str,
+    topic_key: str = "",
+    country_key: str = "",
+    region_key: str = "",
+):
+    topic_key = normalize_filter_value(topic_key)
+    country_key = normalize_filter_value(country_key).upper()
+    region_key = normalize_filter_value(region_key)
+    filtered = {}
+    for key, source in NEWS_SOURCES.items():
+        if source.get("language") != language_key:
+            continue
+        if topic_key and source.get("topic") != topic_key:
+            continue
+        if country_key and (source.get("country") or "").upper() != country_key:
+            continue
+        if region_key and source.get("region") != region_key:
+            continue
+        filtered[key] = source
+    return filtered
+
+
+def gather_news(
+    limit_per_source: int,
+    language_key: str,
+    selected_sources: list,
+    topic_key: str = "",
+    country_key: str = "",
+    region_key: str = "",
+):
+    lang_sources = filter_sources(
+        language_key=language_key,
+        topic_key=topic_key,
+        country_key=country_key,
+        region_key=region_key,
+    )
     if selected_sources:
         keys = [k for k in selected_sources if k in lang_sources]
         if not keys:
@@ -1041,6 +1302,9 @@ def index():
         "index.html",
         sources=NEWS_SOURCES,
         languages=LANGUAGE_CONFIGS,
+        topics=TOPIC_CONFIGS,
+        countries=COUNTRY_CONFIGS,
+        regions=REGION_CONFIGS,
         models=MODEL_PATHS,
         default_model=DEFAULT_MODEL_KEY,
         default_language=default_language,
@@ -1055,6 +1319,9 @@ def api_news():
     output_language = request.args.get("output_language", language)
     model_key = request.args.get("model", DEFAULT_MODEL_KEY)
     sources_param = request.args.get("sources", "")
+    topic = request.args.get("topic", "")
+    country = request.args.get("country", "")
+    region = request.args.get("region", "")
     include_raw = request.args.get("include_raw", "false").lower() == "true"
     translation_model_active = bool((TRANSLATION_MODEL_REF or "").strip())
 
@@ -1097,6 +1364,9 @@ def api_news():
         limit_per_source=limit_per_source,
         language_key=language,
         selected_sources=selected_sources,
+        topic_key=topic,
+        country_key=country,
+        region_key=region,
     )
     result = []
     source_type_counts = {"article": 0, "rss": 0}
@@ -1194,9 +1464,15 @@ def api_news():
             "language": language,
             "output_language": output_language,
             "translation_model": TRANSLATION_MODEL_REF if translation_model_active else None,
+            "topic": normalize_filter_value(topic),
+            "country": normalize_filter_value(country).upper(),
+            "region": normalize_filter_value(region),
             "available_models": list(MODEL_PATHS.keys()),
             "available_sources": NEWS_SOURCES,
             "available_languages": LANGUAGE_CONFIGS,
+            "available_topics": TOPIC_CONFIGS,
+            "available_regions": REGION_CONFIGS,
+            "available_countries": COUNTRY_CONFIGS,
             "items": result,
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }

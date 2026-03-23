@@ -88,6 +88,15 @@
               {% endfor %}
             </select>
 
+            <label for="topic">News Type</label>
+            <select id="topic"></select>
+
+            <label for="region">Region</label>
+            <select id="region"></select>
+
+            <label for="country">Country</label>
+            <select id="country"></select>
+
             <label for="sources">Sources</label>
             <div id="sources" class="source-checklist"></div>
 
@@ -143,6 +152,9 @@
       const languageEl = document.getElementById("language");
       const sourcesEl = document.getElementById("sources");
       const outputLanguageEl = document.getElementById("outputLanguage");
+      const topicEl = document.getElementById("topic");
+      const regionEl = document.getElementById("region");
+      const countryEl = document.getElementById("country");
       const modelEl = document.getElementById("model");
       const limitEl = document.getElementById("limit");
       const refreshBtn = document.getElementById("refreshBtn");
@@ -158,6 +170,9 @@
       const bodyEl = document.body;
       const allSources = {{ sources | tojson }};
       const allLanguages = {{ languages | tojson }};
+      const allTopics = {{ topics | tojson }};
+      const allRegions = {{ regions | tojson }};
+      const allCountries = {{ countries | tojson }};
       let latestItems = [];
       let lastRenderedColumnCount = null;
       let panelHidden = false;
@@ -201,14 +216,127 @@
         });
       }
 
-      function getSourcesByLanguage(languageKey) {
-        return Object.entries(allSources).filter(([, source]) => source.language === languageKey);
+      function normalizeFilterValue(value) {
+        if (!value || value === "__all__") {
+          return "";
+        }
+        return value;
+      }
+
+      function getFilteredSources({
+        languageKey = languageEl.value,
+        topicKey = topicEl.value,
+        regionKey = regionEl.value,
+        countryKey = countryEl.value,
+      } = {}) {
+        const normalizedTopic = normalizeFilterValue(topicKey);
+        const normalizedRegion = normalizeFilterValue(regionKey);
+        const normalizedCountry = normalizeFilterValue(countryKey);
+        return Object.entries(allSources).filter(([, source]) => {
+          if (source.language !== languageKey) return false;
+          if (normalizedTopic && source.topic !== normalizedTopic) return false;
+          if (normalizedRegion && source.region !== normalizedRegion) return false;
+          if (normalizedCountry && source.country !== normalizedCountry) return false;
+          return true;
+        });
+      }
+
+      function renderSelectOptions(selectEl, values, labelForValue, allLabel) {
+        const selectedBefore = selectEl.value;
+        selectEl.innerHTML = "";
+        const allOption = document.createElement("option");
+        allOption.value = "__all__";
+        allOption.textContent = allLabel;
+        selectEl.appendChild(allOption);
+
+        values.forEach((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = labelForValue(value);
+          selectEl.appendChild(option);
+        });
+
+        const canKeep =
+          selectedBefore && (selectedBefore === "__all__" || values.includes(selectedBefore));
+        selectEl.value = canKeep ? selectedBefore : "__all__";
+      }
+
+      function renderTopicOptions() {
+        const values = Array.from(
+          new Set(
+            getFilteredSources({
+              languageKey: languageEl.value,
+              topicKey: "__all__",
+              regionKey: "__all__",
+              countryKey: "__all__",
+            }).map(([, source]) => source.topic)
+          )
+        ).sort((a, b) =>
+          (allTopics[a]?.name || a).localeCompare(allTopics[b]?.name || b, undefined, {
+            sensitivity: "base",
+          })
+        );
+
+        renderSelectOptions(
+          topicEl,
+          values,
+          (value) => allTopics[value]?.name || value,
+          "All Types"
+        );
+      }
+
+      function renderRegionOptions() {
+        const values = Array.from(
+          new Set(
+            getFilteredSources({
+              languageKey: languageEl.value,
+              topicKey: topicEl.value,
+              regionKey: "__all__",
+              countryKey: "__all__",
+            }).map(([, source]) => source.region)
+          )
+        ).sort((a, b) =>
+          (allRegions[a]?.name || a).localeCompare(allRegions[b]?.name || b, undefined, {
+            sensitivity: "base",
+          })
+        );
+
+        renderSelectOptions(
+          regionEl,
+          values,
+          (value) => allRegions[value]?.name || value,
+          "All Regions"
+        );
+      }
+
+      function renderCountryOptions() {
+        const values = Array.from(
+          new Set(
+            getFilteredSources({
+              languageKey: languageEl.value,
+              topicKey: topicEl.value,
+              regionKey: regionEl.value,
+              countryKey: "__all__",
+            }).map(([, source]) => source.country)
+          )
+        ).sort((a, b) =>
+          (allCountries[a]?.name || a).localeCompare(allCountries[b]?.name || b, undefined, {
+            sensitivity: "base",
+          })
+        );
+
+        renderSelectOptions(
+          countryEl,
+          values,
+          (value) => allCountries[value]?.name || value,
+          "All Countries"
+        );
       }
 
       function renderSourceOptions() {
-        const languageSources = getSourcesByLanguage(languageEl.value);
+        const visibleSources = getFilteredSources();
         sourcesEl.innerHTML = "";
-        languageSources.forEach(([key, source], index) => {
+        visibleSources.forEach(([key, source], index) => {
           const checkedAttr = index < 5 ? "checked" : "";
           const row = document.createElement("label");
           row.className = "source-option";
@@ -218,6 +346,13 @@
           `;
           sourcesEl.appendChild(row);
         });
+      }
+
+      function refreshSourceFilters() {
+        renderTopicOptions();
+        renderRegionOptions();
+        renderCountryOptions();
+        renderSourceOptions();
       }
 
       function getSelectedSources() {
@@ -399,6 +534,9 @@
           language: languageEl.value,
           output_language: outputLanguage,
           sources: selectedSources.join(","),
+          topic: normalizeFilterValue(topicEl.value),
+          country: normalizeFilterValue(countryEl.value),
+          region: normalizeFilterValue(regionEl.value),
           model: modelEl.value,
           limit: limitEl.value,
         });
@@ -422,6 +560,9 @@
               `Output: ${outputLanguageName}`,
               `Model: ${data.model}`,
               `Sources: ${selectedSources.length}`,
+              `Topic: ${topicEl.options[topicEl.selectedIndex]?.text || "All Types"}`,
+              `Region: ${regionEl.options[regionEl.selectedIndex]?.text || "All Regions"}`,
+              `Country: ${countryEl.options[countryEl.selectedIndex]?.text || "All Countries"}`,
             ].join("\n")
           );
           latestItems = data.items || [];
@@ -456,6 +597,21 @@
         if (outputLanguageEl.value !== "__source__" && outputLanguageEl.value === languageEl.value) {
           outputLanguageEl.value = "__source__";
         }
+        refreshSourceFilters();
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      topicEl.addEventListener("change", () => {
+        renderRegionOptions();
+        renderCountryOptions();
+        renderSourceOptions();
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      regionEl.addEventListener("change", () => {
+        renderCountryOptions();
+        renderSourceOptions();
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      countryEl.addEventListener("change", () => {
         renderSourceOptions();
         setStatus("Filters updated. Click Refresh Feed to apply.");
       });
@@ -483,7 +639,7 @@
         updateColumnToggleLabel();
         updatePanelToggleLabel();
         syncLogoCenterState();
-        renderSourceOptions();
+        refreshSourceFilters();
         loadNews();
       });
     </script>
