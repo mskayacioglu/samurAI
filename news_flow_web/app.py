@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import hashlib
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -504,6 +505,331 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+MOJIBAKE_MARKERS = ("â", "Ã", "Â")
+BOILERPLATE_PATTERNS = [
+    r"\bcookie(?:s)?\b",
+    r"\bprivacy policy\b",
+    r"\bterms of use\b",
+    r"\bsubscribe\b",
+    r"\bsubscription\b",
+    r"\bnewsletter\b",
+    r"\badvertisement\b",
+    r"\bsponsored\b",
+    r"\bsign in\b",
+    r"\blog in\b",
+    r"\bmost read\b",
+    r"\brelated (?:articles?|stories)\b",
+    r"\bshare this\b",
+    r"\bclick here\b",
+    r"\bçerez(?:ler)?\b",
+    r"\bgizlilik politikası\b",
+    r"\bkullanım koşulları\b",
+    r"\bkişisel veriler(?:in korunması)?\b",
+    r"\babone ol\b",
+    r"\büye ol\b",
+    r"\breklam\b",
+    r"\bsponsorlu\b",
+    r"\bdaha fazla oku\b",
+    r"\ben çok okunanlar\b",
+    r"\baccessibility links\b",
+    r"\bopen navigation menu\b",
+    r"\bclose navigation menu\b",
+    r"\bexpand/collapse submenu\b",
+    r"\bskip to main content\b",
+    r"\bskip to content\b",
+    r"\bskip links?\b",
+    r"\bkeyboard shortcuts for audio player\b",
+    r"\bnpr shop\b",
+    r"\breklamsız cumhuriyet\b",
+    r"\bcumhuriyet tv\b",
+    r"\bson dakika türkiye haberleri\b",
+    r"\bdolar\s+\d",
+    r"\beuro\s+\d",
+    r"\bsterlin\s+\d",
+    r"\bbitcoin\s+\d",
+    r"\bgram altın\b",
+]
+SHORT_NAV_PATTERNS = [
+    r"\bhaberler\b",
+    r"\bvideo\b",
+    r"\bfoto(?:ğraf|galeri)\b",
+    r"\bcanlı\b",
+    r"\bgündem\b",
+    r"\bekonomi\b",
+    r"\bspor\b",
+    r"\bweather\b",
+    r"\btravel\b",
+    r"\bmenu\b",
+]
+NAV_CLUSTER_WORDS = {
+    "home",
+    "news",
+    "national",
+    "world",
+    "politics",
+    "business",
+    "health",
+    "science",
+    "climate",
+    "culture",
+    "books",
+    "movies",
+    "television",
+    "music",
+    "podcasts",
+    "shows",
+    "newsletters",
+    "shop",
+    "gündem",
+    "yazarlar",
+    "siyaset",
+    "ekonomi",
+    "dünya",
+    "yaşam",
+    "kültür",
+    "sanat",
+    "eğitim",
+    "teknoloji",
+    "yerel",
+    "egazete",
+    "reklamsız",
+    "cumhuriyet",
+}
+CODE_NOISE_PATTERNS = [
+    r"/\*!\s*sc\*/",
+    r"\bdata-styled\b",
+    r"\bobject-fit\s*:",
+    r"\bfont-family\s*:",
+    r"\bposition\s*:\s*(?:absolute|relative|fixed)\b",
+    r"\b@media\s+screen\b",
+    r"\bdisplay\s*:\s*(?:block|flex|grid)\b",
+    r'\{"@context"',
+    r'"@context"\s*:\s*"https?://schema\.org"',
+    r'"@type"\s*:\s*"(?:liveblogposting|newsarticle|imageobject|breadcrumblist|organization)"',
+    r'"contenturl"\s*:',
+    r"<(?:div|a|span|li|ul|script|style)\b",
+]
+
+
+def recursive_unescape(text: str, rounds: int = 4) -> str:
+    value = str(text or "")
+    for _ in range(max(1, rounds)):
+        decoded = unescape(value)
+        if decoded == value:
+            break
+        value = decoded
+    return value
+
+
+def mojibake_count(text: str) -> int:
+    text = str(text or "")
+    return sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
+
+
+def repair_mojibake(text: str) -> str:
+    text = str(text or "")
+    original_bad = mojibake_count(text)
+    if original_bad == 0:
+        return text
+    best = text
+    best_bad = original_bad
+    for source_encoding in ("latin-1", "cp1252"):
+        try:
+            repaired = text.encode(source_encoding).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+        repaired_bad = mojibake_count(repaired)
+        if repaired_bad < best_bad and len(repaired) >= int(len(text) * 0.9):
+            best = repaired
+            best_bad = repaired_bad
+    return best
+
+
+def normalize_extracted_text(text: str) -> str:
+    text = recursive_unescape(text)
+    text = repair_mojibake(text)
+    text = text.replace("\u200b", " ")
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", " ", text)
+    return normalize_text(text)
+
+
+def looks_like_code_noise(text: str) -> bool:
+    text = str(text or "")
+    if not text:
+        return False
+    low = text.lower()
+    if any(re.search(pattern, low, flags=re.IGNORECASE) for pattern in CODE_NOISE_PATTERNS):
+        return True
+    brace_count = text.count("{") + text.count("}")
+    semi_count = text.count(";")
+    colon_count = text.count(":")
+    if brace_count >= 2 and semi_count >= 2 and colon_count >= 3:
+        return True
+    if text.count('{"') >= 2 and text.count('":') >= 5:
+        return True
+    if text.count('","') >= 5 and text.count(":") >= 8:
+        return True
+    if len(text) <= 240 and re.search(r"\b(?:function|const|let|var)\b", low):
+        return True
+    return False
+
+
+def looks_like_boilerplate(text: str) -> bool:
+    sentence = normalize_extracted_text(text).lower()
+    if not sentence:
+        return True
+    if looks_like_code_noise(sentence):
+        return True
+    if any(re.search(pattern, sentence, flags=re.IGNORECASE) for pattern in BOILERPLATE_PATTERNS):
+        return True
+    if len(sentence) <= 420:
+        cluster_hits = sum(1 for word in NAV_CLUSTER_WORDS if f" {word} " in f" {sentence} ")
+        if cluster_hits >= 6:
+            return True
+    if len(sentence) <= 64:
+        nav_hits = sum(
+            1 for pattern in SHORT_NAV_PATTERNS if re.search(pattern, sentence, flags=re.IGNORECASE)
+        )
+        if nav_hits >= 2:
+            return True
+    return False
+
+
+def dedupe_text_segments(segments):
+    deduped = []
+    for segment in segments:
+        segment = normalize_extracted_text(segment)
+        if not segment:
+            continue
+        if any(is_near_duplicate_text(segment, prev, threshold=0.9) for prev in deduped[-8:]):
+            continue
+        deduped.append(segment)
+    return deduped
+
+
+def filter_extracted_text_noise(text: str) -> str:
+    text = normalize_extracted_text(text)
+    if not text:
+        return ""
+    chunks = [
+        normalize_extracted_text(chunk)
+        for chunk in re.split(r"\n+|\s+\|\s+|(?<=[.!?…])\s+", text)
+        if chunk.strip()
+    ]
+    if not chunks:
+        return text
+
+    kept = []
+    for chunk in chunks:
+        if len(chunk) < 18:
+            continue
+        if looks_like_code_noise(chunk):
+            continue
+        if looks_like_boilerplate(chunk):
+            continue
+        if (is_metadata_sentence(chunk, "en") or is_metadata_sentence(chunk, "tr")) and len(chunk) <= 140:
+            continue
+        if any(is_near_duplicate_text(chunk, prev, threshold=0.92) for prev in kept[-6:]):
+            continue
+        kept.append(chunk)
+
+    if not kept:
+        return "" if looks_like_boilerplate(text) else text
+    filtered = normalize_extracted_text(" ".join(kept))
+    if len(filtered) < max(80, int(len(text) * 0.35)):
+        if looks_like_boilerplate(text):
+            return filtered
+        return text
+    return filtered
+
+
+def score_article_candidate(text: str) -> float:
+    text = normalize_extracted_text(text)
+    if not text:
+        return -10_000.0
+
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?…])\s+", text) if s.strip()]
+    words = re.findall(r"\b[\w'-]+\b", text)
+    alpha_chars = len(
+        re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿÇĞİÖŞÜçğıöşüА-Яа-я一-龯ぁ-んァ-ン]", text)
+    )
+    alpha_ratio = alpha_chars / max(1, len(text))
+    boiler_hits = sum(
+        len(re.findall(pattern, text, flags=re.IGNORECASE)) for pattern in BOILERPLATE_PATTERNS
+    )
+    code_hits = sum(len(re.findall(pattern, text, flags=re.IGNORECASE)) for pattern in CODE_NOISE_PATTERNS)
+    mojibake_hits = mojibake_count(text)
+    duplicate_sentences = max(0, len(sentences) - len(dedupe_text_segments(sentences)))
+
+    score = min(len(text), MAX_ARTICLE_CHARS) * 0.12
+    score += len(sentences) * 32
+    score += alpha_ratio * 170
+    score -= boiler_hits * 180
+    score -= code_hits * 260
+    score -= mojibake_hits * 85
+    score -= duplicate_sentences * 130
+
+    if len(text) < 160:
+        score -= 320
+    if len(words) < 40:
+        score -= 120
+    if len(sentences) < 2:
+        score -= 140
+    return score
+
+
+def pick_best_article_text(candidates):
+    scored = []
+    for candidate in candidates:
+        cleaned_candidate = filter_extracted_text_noise(candidate)
+        cleaned_candidate = normalize_extracted_text(cleaned_candidate)
+        if not cleaned_candidate:
+            continue
+        scored.append((score_article_candidate(cleaned_candidate), cleaned_candidate))
+    if not scored:
+        return ""
+    scored.sort(key=lambda item: (item[0], len(item[1])), reverse=True)
+    return scored[0][1][:MAX_ARTICLE_CHARS]
+
+
+def _extract_charset(content_type: str) -> str:
+    match = re.search(r"charset\s*=\s*([A-Za-z0-9._-]+)", content_type or "", flags=re.IGNORECASE)
+    return (match.group(1) if match else "").strip()
+
+
+def decode_html_bytes(raw_bytes: bytes, content_type: str = "", hint_encoding: str = "") -> str:
+    if not raw_bytes:
+        return ""
+
+    encodings = []
+    for candidate in [
+        hint_encoding,
+        _extract_charset(content_type),
+        "utf-8",
+        "cp1254",
+        "latin-1",
+    ]:
+        candidate = normalize_text(candidate).lower()
+        if candidate and candidate not in encodings:
+            encodings.append(candidate)
+
+    best_text = ""
+    best_score = float("-inf")
+    for encoding in encodings:
+        try:
+            decoded = raw_bytes.decode(encoding, errors="replace")
+        except LookupError:
+            continue
+        normalized = normalize_extracted_text(decoded)
+        if not normalized:
+            continue
+        score = -normalized.count("�") * 4 - mojibake_count(normalized) * 2 + len(normalized) * 0.001
+        if score > best_score:
+            best_score = score
+            best_text = normalized
+    return best_text
+
+
 def _word_set(text: str) -> set:
     return {t for t in re.findall(r"\b[\w'-]+\b", (text or "").lower()) if len(t) > 2}
 
@@ -628,7 +954,8 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
             r"\b[0-3]?\d\.[0-1]?\d\.\d{4}\s+[0-2]?\d:[0-5]\d\b",
             r"\bFoto(?:ğraf|graf)\s*:\s*[^.]{1,100}",
             r"\bKaynak\s*:\s*[^.]{1,100}",
-            r"\b(?:SON DAK[İI]KA|EN ÇOK OKUNANLAR)\b.*$",
+            r"(?<!\w)EN ÇOK OKUNANLAR(?:\s*[:|–—-]\s*)?",
+            r"(?<!\w)SON DAK[İI]KA(?:\s+HABERLER[İI])?(?:\s*[:|–—-]\s*)",
             r"[^.]{0,120}\bhesab[ıiuü]ndan konuya ilişkin açıklama yapıldı\.?",
             r"\b\w+n[ıiuü]n,\s*[A-Za-zÇĞİÖŞÜçğıöşü0-9'\" ]{0,40}hesab[ıiuü]ndan konuya ilişkin açıklama yapıldı\.?",
         ]
@@ -699,98 +1026,191 @@ def strip_html(text: str) -> str:
     if not text:
         return ""
     clean = re.sub(r"<[^>]+>", " ", text)
-    return normalize_text(clean)
+    return normalize_extracted_text(clean)
 
 
 def _sanitize_html_fragment(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", text or "")
-    return normalize_text(text)
+    return normalize_extracted_text(text)
+
+
+def _decode_json_escaped_value(raw_value: str) -> str:
+    raw_value = str(raw_value or "")
+    if not raw_value:
+        return ""
+    try:
+        decoded = json.loads(f'"{raw_value}"')
+    except Exception:
+        decoded = raw_value.replace("\\n", " ").replace("\\t", " ").replace('\\"', '"')
+    return normalize_extracted_text(decoded)
+
+
+def _iter_article_bodies_from_json(node):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            key_name = str(key or "").strip().lower()
+            if key_name == "articlebody" and isinstance(value, str):
+                yield value
+            yield from _iter_article_bodies_from_json(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _iter_article_bodies_from_json(item)
+
+
+def extract_json_ld_article_texts(html_text: str):
+    html_text = str(html_text or "")
+    if not html_text:
+        return []
+
+    texts = []
+    script_blocks = re.findall(
+        r'(?is)<script\b[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html_text,
+    )
+    for script in script_blocks:
+        script = recursive_unescape(script).strip()
+        if not script:
+            continue
+        script = re.sub(r"^\s*<!--|-->\s*$", "", script, flags=re.IGNORECASE).strip()
+        script = re.sub(r"^\s*//<!\[CDATA\[|\]\]//\s*$", "", script, flags=re.IGNORECASE).strip()
+
+        parsed = None
+        try:
+            parsed = json.loads(script)
+        except Exception:
+            parsed = None
+
+        if parsed is not None:
+            texts.extend(_iter_article_bodies_from_json(parsed))
+            continue
+
+        # Some sites embed malformed JSON-LD; fallback to escaped string extraction.
+        for raw in re.findall(r'(?is)"articleBody"\s*:\s*"((?:\\.|[^"\\]){60,})"', script):
+            decoded = _decode_json_escaped_value(raw)
+            if decoded:
+                texts.append(decoded)
+
+    # Final fallback: direct articleBody key in page source.
+    if not texts:
+        for raw in re.findall(r'(?is)"articleBody"\s*:\s*"((?:\\.|[^"\\]){60,})"', html_text):
+            decoded = _decode_json_escaped_value(raw)
+            if decoded:
+                texts.append(decoded)
+
+    cleaned = []
+    for text in texts:
+        normalized = normalize_extracted_text(text)
+        if len(normalized) >= 100:
+            cleaned.append(normalized)
+    return dedupe_text_segments(cleaned)
+
+
+def _is_link_heavy_paragraph(paragraph_html: str, paragraph_text: str) -> bool:
+    links = re.findall(r"(?is)<a\b[^>]*>(.*?)</a>", paragraph_html or "")
+    if not links:
+        return False
+    link_text = normalize_extracted_text(" ".join(_sanitize_html_fragment(link) for link in links))
+    if not link_text:
+        return False
+    return len(link_text) / max(1, len(paragraph_text)) > 0.72 and len(paragraph_text) < 420
+
+
+def extract_paragraphs_from_html_block(html_block: str, min_chars: int = 40):
+    html_block = re.sub(
+        r"(?is)<(script|style|noscript|svg|template|iframe|form|nav|footer|aside)[^>]*>.*?</\1>",
+        " ",
+        html_block or "",
+    )
+    paragraphs = []
+    for paragraph_html in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", html_block):
+        paragraph_text = _sanitize_html_fragment(paragraph_html)
+        if len(paragraph_text) < min_chars:
+            continue
+        if _is_link_heavy_paragraph(paragraph_html, paragraph_text):
+            continue
+        if looks_like_boilerplate(paragraph_text):
+            continue
+        paragraphs.append(paragraph_text)
+
+    if paragraphs:
+        return dedupe_text_segments(paragraphs)
+
+    no_tags = re.sub(r"(?is)<br\s*/?>", "\n", html_block)
+    no_tags = re.sub(r"(?is)<[^>]+>", " ", no_tags)
+    lines = [
+        normalize_extracted_text(line)
+        for line in re.split(r"\n+", no_tags)
+        if normalize_extracted_text(line)
+    ]
+    lines = [line for line in lines if len(line) >= max(55, min_chars)]
+    lines = [line for line in lines if not looks_like_boilerplate(line)]
+    return dedupe_text_segments(lines)
+
+
+def build_candidate_from_segments(segments):
+    segments = dedupe_text_segments(segments or [])
+    if not segments:
+        return ""
+    kept = []
+    for segment in segments:
+        if len(segment) < 35:
+            continue
+        if looks_like_boilerplate(segment):
+            continue
+        if (is_metadata_sentence(segment, "en") or is_metadata_sentence(segment, "tr")) and len(segment) <= 140:
+            continue
+        kept.append(segment)
+    if not kept:
+        return ""
+    return normalize_extracted_text(" ".join(kept))
 
 
 def extract_article_text(html_text: str) -> str:
     if not html_text:
         return ""
 
+    candidates = []
+    candidates.extend(extract_json_ld_article_texts(html_text))
+
     cleaned = re.sub(
-        r"(?is)<(script|style|noscript|svg|template|iframe|form|nav|footer)[^>]*>.*?</\1>",
+        r"(?is)<(script|style|noscript|svg|template|iframe|form|nav|footer|aside)[^>]*>.*?</\1>",
         " ",
         html_text,
     )
 
-    # 1) JSON-LD articleBody is often the cleanest extraction path for modern sites.
-    json_ld_bodies = re.findall(
-        r'(?is)"articleBody"\s*:\s*"((?:\\.|[^"\\]){140,})"', cleaned
-    )
-    if json_ld_bodies:
-        json_ld_texts = [normalize_text(bytes(x, "utf-8").decode("unicode_escape")) for x in json_ld_bodies]
-        json_ld_texts = [t for t in json_ld_texts if len(t) >= 140]
-        if json_ld_texts:
-            return max(json_ld_texts, key=len)[:MAX_ARTICLE_CHARS]
-
-    candidates = []
+    # 1) Prioritize semantic <article> containers.
     for block in re.findall(r"(?is)<article\b[^>]*>(.*?)</article>", cleaned):
-        block_paragraphs = [
-            _sanitize_html_fragment(p)
-            for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", block)
-        ]
-        block_paragraphs = [p for p in block_paragraphs if len(p) >= 50]
-        if block_paragraphs:
-            candidates.append(" ".join(block_paragraphs))
+        block_paragraphs = extract_paragraphs_from_html_block(block, min_chars=48)
+        candidate = build_candidate_from_segments(block_paragraphs)
+        if candidate:
+            candidates.append(candidate)
 
-    if candidates:
-        best = max(candidates, key=len)
-        if len(best) >= min(MIN_ARTICLE_CHARS, 220):
-            return best[:MAX_ARTICLE_CHARS]
-
-    # 2) Many news sites keep body text in div/section/main containers.
+    # 2) Many news sites keep body text under content-like containers.
     content_blocks = re.findall(
         r'(?is)<(?:div|section|main)\b[^>]*(?:id|class)\s*=\s*["\'][^"\']*(?:article|content|story|post|body)[^"\']*["\'][^>]*>(.*?)</(?:div|section|main)>',
         cleaned,
     )
     for block in content_blocks:
-        block_paragraphs = [
-            _sanitize_html_fragment(p)
-            for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", block)
-        ]
-        block_paragraphs = [p for p in block_paragraphs if len(p) >= 40]
-        if block_paragraphs:
-            joined = " ".join(block_paragraphs)
-            if len(joined) >= 140:
-                return joined[:MAX_ARTICLE_CHARS]
+        block_paragraphs = extract_paragraphs_from_html_block(block, min_chars=38)
+        candidate = build_candidate_from_segments(block_paragraphs)
+        if candidate:
+            candidates.append(candidate)
 
-    paragraphs = [
-        _sanitize_html_fragment(p) for p in re.findall(r"(?is)<p\b[^>]*>(.*?)</p>", cleaned)
-    ]
-    filtered = []
-    for p in paragraphs:
-        if len(p) < 40:
-            continue
-        low = p.lower()
-        if "cookie" in low and "consent" in low:
-            continue
-        if "subscribe" in low and "newsletter" in low:
-            continue
-        filtered.append(p)
+    # 3) Global paragraph fallback from cleaned DOM.
+    paragraph_candidates = extract_paragraphs_from_html_block(cleaned, min_chars=42)
+    if paragraph_candidates:
+        candidate = build_candidate_from_segments(paragraph_candidates)
+        if candidate:
+            candidates.append(candidate)
 
-    if filtered:
-        combined = " ".join(filtered)
-        if len(combined) >= 140:
-            return combined[:MAX_ARTICLE_CHARS]
-
-    # 3) Last resort: plain body text (can be noisy but better than empty).
+    # 4) Last-resort body text (can be noisy but still useful when everything fails).
     body_match = re.search(r"(?is)<body\b[^>]*>(.*?)</body>", cleaned)
     if body_match:
-        body_text = _sanitize_html_fragment(body_match.group(1))
-        body_text = re.sub(
-            r"\b(sign in|subscribe|cookie|accept all|advertisement|privacy policy)\b",
-            " ",
-            body_text,
-            flags=re.I,
-        )
-        body_text = normalize_text(body_text)
-        if len(body_text) >= 220:
-            return body_text[:MAX_ARTICLE_CHARS]
-    return ""
+        body_text = filter_extracted_text_noise(_sanitize_html_fragment(body_match.group(1)))
+        if len(body_text) >= 180:
+            candidates.append(body_text)
+
+    return pick_best_article_text(candidates)
 
 
 @lru_cache(maxsize=256)
@@ -820,7 +1240,12 @@ def fetch_article_text(url: str) -> str:
             if response.ok and (
                 "text/html" in content_type or "application/xhtml+xml" in content_type
             ):
-                html_text = response.text[: MAX_ARTICLE_CHARS * 3]
+                html_bytes = (response.content or b"")[: MAX_ARTICLE_CHARS * 4]
+                html_text = decode_html_bytes(
+                    html_bytes,
+                    content_type=content_type,
+                    hint_encoding=(response.encoding or response.apparent_encoding or ""),
+                )
         except Exception:
             html_text = ""
 
@@ -831,29 +1256,68 @@ def fetch_article_text(url: str) -> str:
                 content_type = (response.headers.get("Content-Type") or "").lower()
                 if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
                     return ""
-                html_bytes = response.read(MAX_ARTICLE_CHARS * 3)
-                html_text = html_bytes.decode("utf-8", errors="ignore")
+                html_bytes = response.read(MAX_ARTICLE_CHARS * 4)
+                html_text = decode_html_bytes(html_bytes, content_type=content_type, hint_encoding="")
         except Exception:
             html_text = ""
 
-    extracted = extract_article_text(html_text) if html_text else ""
-    if extracted:
-        return extracted
+    candidates = []
+    if html_text:
+        primary = extract_article_text(html_text)
+        if primary:
+            candidates.append(primary)
+
+        if trafilatura is not None:
+            for kwargs in ({"favor_precision": True}, {"favor_recall": True}):
+                try:
+                    text = trafilatura.extract(
+                        html_text,
+                        include_comments=False,
+                        include_tables=False,
+                        **kwargs,
+                    )
+                except TypeError:
+                    text = trafilatura.extract(
+                        html_text,
+                        include_comments=False,
+                        include_tables=False,
+                    )
+                except Exception:
+                    text = ""
+                if text:
+                    candidates.append(normalize_extracted_text(text))
+
+    best = pick_best_article_text(candidates)
+    if best:
+        return best
 
     # Robust fallback extractor for JS-heavy/complex templates.
     if trafilatura is not None:
         try:
             downloaded = trafilatura.fetch_url(resolved_url)
             if downloaded:
-                text = trafilatura.extract(
-                    downloaded,
-                    include_comments=False,
-                    include_tables=False,
-                    favor_recall=True,
-                )
-                text = normalize_text(text or "")
-                if len(text) >= 140:
-                    return text[:MAX_ARTICLE_CHARS]
+                fallback_candidates = []
+                for kwargs in ({"favor_precision": True}, {"favor_recall": True}):
+                    try:
+                        text = trafilatura.extract(
+                            downloaded,
+                            include_comments=False,
+                            include_tables=False,
+                            **kwargs,
+                        )
+                    except TypeError:
+                        text = trafilatura.extract(
+                            downloaded,
+                            include_comments=False,
+                            include_tables=False,
+                        )
+                    except Exception:
+                        text = ""
+                    if text:
+                        fallback_candidates.append(normalize_extracted_text(text))
+                best_fallback = pick_best_article_text(fallback_candidates)
+                if best_fallback:
+                    return best_fallback
         except Exception:
             return ""
     return ""
@@ -885,11 +1349,25 @@ def fetch_article_image(url: str) -> str:
             if response.ok and (
                 "text/html" in content_type or "application/xhtml+xml" in content_type
             ):
-                html_text = response.text[: MAX_ARTICLE_CHARS * 2]
+                html_bytes = (response.content or b"")[: MAX_ARTICLE_CHARS * 2]
+                html_text = decode_html_bytes(
+                    html_bytes,
+                    content_type=content_type,
+                    hint_encoding=(response.encoding or response.apparent_encoding or ""),
+                )
         except Exception:
             html_text = ""
     if not html_text:
-        return ""
+        try:
+            req = Request(resolved_url, headers=headers)
+            with urlopen(req, timeout=ARTICLE_FETCH_TIMEOUT) as response:
+                content_type = (response.headers.get("Content-Type") or "").lower()
+                if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
+                    return ""
+                html_bytes = response.read(MAX_ARTICLE_CHARS * 2)
+                html_text = decode_html_bytes(html_bytes, content_type=content_type, hint_encoding="")
+        except Exception:
+            return ""
     return extract_image_from_html(html_text)
 
 
