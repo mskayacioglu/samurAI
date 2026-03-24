@@ -39,7 +39,12 @@ Not:
 - İngilizce dışı dillerde API, otomatik olarak `mbart50_xlsum` modelini kullanır.
 - Çeviri katmanı opsiyoneldir. `TRANSLATION_MODEL_REF` set edilirse başlık/özet hedef dile çevrilebilir.
 - Varsayılan dil `en` olarak gelir; `LANGUAGE_KEY` ile değiştirilebilir.
-- Her dil için dogrudan RSS kaynaklari tanimlidir; bazi dillerde ek spor kaynaklari da vardir (Google News yok).
+- Her dil için popüler kaynak havuzu + kategori bazlı ek kaynaklar otomatik üretilir.
+- Kategori seti: `general`, `world`, `politics`, `business`, `technology`, `science`, `health`, `sports`, `entertainment`, `culture`.
+- Bir kaynakta doğrudan RSS başarısız olursa sistem otomatik Google News site-scope RSS fallback uygular; böylece seçeneklerdeki kaynakların RSS erişimi korunur.
+- Varsayılan olarak kalite kapısı açıktır (`ENABLE_SOURCE_QUALITY_GATE=1`): düşük kalite verdiği bilinen kaynaklar seçeneklerde gizlenir.
+- Dinamik kalite kapısı opsiyoneldir (`ENABLE_DYNAMIC_QUALITY_GATE=1`): en son `source_validation_reports/*.json` raporundaki başarısız kaynaklar da otomatik gizlenir.
+- Google News topic-source üretimi varsayılan kapalıdır (`ENABLE_GOOGLE_TOPIC_SOURCES=0`), istenirse açılabilir.
 - Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
 - Özetleme girdisinde model sadece haber gövdesini alır (başlık modele verilmez); başlık arayüzde ayrı gösterilir.
 - `SOURCE_OVERSAMPLE_FACTOR` (varsayılan `4`) ile kaynak başına daha fazla aday link çekilip, çekilemeyen haberler yerine yeni adaylar denenir.
@@ -121,7 +126,8 @@ Sorgu parametreleri:
 - `language`: `en`, `tr`, `fr`, `de`, `es`, `it`, `ru`, `ar`, `hi`, `zh`, `ja`, `ko`, `nl`, `ro`, `vi`
 - `output_language`: çıktı dili (verilmezse `language` ile aynı kabul edilir)
 - `topic`: haber türü filtresi (`general`, `world`, `sports` veya `__all__`)
-- `region`: bölge filtresi (örn. `europe`, `asia`, `middle_east`, `north_america`, `global` veya `__all__`)
+- `topic`: haber türü filtresi (`general`, `world`, `politics`, `business`, `technology`, `science`, `health`, `sports`, `entertainment`, `culture` veya `__all__`)
+- `region`: bölge filtresi (örn. `europe`, `asia`, `oceania`, `middle_east`, `north_america`, `global` veya `__all__`)
 - `country`: ülke filtresi (ISO-2 kodu, örn. `TR`, `US`, `GB` veya `__all__`)
 - `sources`: virgülle ayrılmış kaynak anahtarları (ör: `bbc_world,guardian_world`)
 - `source`: geriye dönük tekil kaynak parametresi (`sources` verilmezse kullanılır)
@@ -146,3 +152,31 @@ Varsayılan durumda uygulama, varsa local `models/mbart-large-50-many-to-many-mm
 ```bash
 TRANSLATION_MODEL_REF=facebook/mbart-large-50-many-to-many-mmt python app.py
 ```
+
+## Kaynak Havuzu Doğrulama (RSS + Body Kalite)
+
+Kaynakların erişim ve içerik kalitesini otomatik test etmek için:
+
+```bash
+cd /Users/mskayacioglu/Desktop/inf494_projet/news_flow_web
+python validate_source_pool.py --language __all__ --sample-links 2 --workers 8
+```
+
+Örnek daraltılmış koşu:
+
+```bash
+python validate_source_pool.py --language tr --topic business --max-sources 40
+```
+
+Script çıktıları:
+- `source_validation_reports/source_validation_<timestamp>.json`
+- `source_validation_reports/source_validation_<timestamp>.md`
+
+Rapor her kaynak için:
+- RSS erişim başarısı ve entry sayısı
+- Çekilen article body uzunluğu / kalite skoru
+- Özet tohum kalitesi (`extractive_fallback` dejenere kontrolü)
+- Geçti/Kaldı durumu ve nedenleri
+
+Not:
+- `--min-article-chars` eşiği varsayılan `300`'dür; `ja/ko/zh` için script otomatik olarak bu eşiğin `%70` değerini kullanır (CJK metin yoğunluğu nedeniyle).

@@ -8,7 +8,7 @@ from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from html import unescape
 from threading import Lock
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, quote_plus, unquote, urlencode, urlparse
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
@@ -372,18 +372,31 @@ TOPICAL_SOURCE_EXTENSIONS = {
 TOPIC_CONFIGS = {
     "general": {"name": "General"},
     "world": {"name": "World"},
+    "politics": {"name": "Politics"},
+    "business": {"name": "Business"},
+    "technology": {"name": "Technology"},
+    "science": {"name": "Science"},
+    "health": {"name": "Health"},
     "sports": {"name": "Sports"},
+    "entertainment": {"name": "Entertainment"},
+    "culture": {"name": "Culture"},
 }
 
 REGION_CONFIGS = {
     "global": {"name": "Global"},
     "europe": {"name": "Europe"},
     "asia": {"name": "Asia"},
+    "oceania": {"name": "Oceania"},
     "middle_east": {"name": "Middle East"},
     "north_america": {"name": "North America"},
 }
 
 COUNTRY_CONFIGS = {
+    "AU": {"name": "Australia", "region": "oceania"},
+    "CA": {"name": "Canada", "region": "north_america"},
+    "CH": {"name": "Switzerland", "region": "europe"},
+    "EG": {"name": "Egypt", "region": "middle_east"},
+    "AE": {"name": "United Arab Emirates", "region": "middle_east"},
     "DE": {"name": "Germany", "region": "europe"},
     "ES": {"name": "Spain", "region": "europe"},
     "FR": {"name": "France", "region": "europe"},
@@ -436,6 +449,714 @@ SOURCE_COUNTRY_HINTS = {
     "zh_zaobao": "SG",
 }
 
+GOOGLE_NEWS_LOCALE_HINTS = {
+    "ar": {"hl": "ar", "gl": "SA", "ceid": "SA:ar"},
+    "de": {"hl": "de", "gl": "DE", "ceid": "DE:de"},
+    "en": {"hl": "en-US", "gl": "US", "ceid": "US:en"},
+    "es": {"hl": "es", "gl": "ES", "ceid": "ES:es"},
+    "fr": {"hl": "fr", "gl": "FR", "ceid": "FR:fr"},
+    "hi": {"hl": "hi", "gl": "IN", "ceid": "IN:hi"},
+    "it": {"hl": "it", "gl": "IT", "ceid": "IT:it"},
+    "ja": {"hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    "ko": {"hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+    "nl": {"hl": "nl", "gl": "NL", "ceid": "NL:nl"},
+    "ro": {"hl": "ro", "gl": "RO", "ceid": "RO:ro"},
+    "ru": {"hl": "ru", "gl": "RU", "ceid": "RU:ru"},
+    "tr": {"hl": "tr", "gl": "TR", "ceid": "TR:tr"},
+    "vi": {"hl": "vi", "gl": "VN", "ceid": "VN:vi"},
+    "zh": {"hl": "zh-CN", "gl": "CN", "ceid": "CN:zh-Hans"},
+}
+
+TOPIC_QUERY_TERMS = {
+    "ar": {
+        "business": "اقتصاد",
+        "culture": "ثقافة",
+        "entertainment": "ترفيه",
+        "general": "أخبار",
+        "health": "صحة",
+        "politics": "سياسة",
+        "science": "علوم",
+        "sports": "رياضة",
+        "technology": "تقنية",
+        "world": "العالم",
+    },
+    "de": {
+        "business": "Wirtschaft",
+        "culture": "Kultur",
+        "entertainment": "Unterhaltung",
+        "general": "Nachrichten",
+        "health": "Gesundheit",
+        "politics": "Politik",
+        "science": "Wissenschaft",
+        "sports": "Sport",
+        "technology": "Technologie",
+        "world": "Welt",
+    },
+    "en": {
+        "business": "business",
+        "culture": "culture",
+        "entertainment": "entertainment",
+        "general": "news",
+        "health": "health",
+        "politics": "politics",
+        "science": "science",
+        "sports": "sports",
+        "technology": "technology",
+        "world": "world",
+    },
+    "es": {
+        "business": "economia",
+        "culture": "cultura",
+        "entertainment": "entretenimiento",
+        "general": "noticias",
+        "health": "salud",
+        "politics": "politica",
+        "science": "ciencia",
+        "sports": "deportes",
+        "technology": "tecnologia",
+        "world": "mundo",
+    },
+    "fr": {
+        "business": "economie",
+        "culture": "culture",
+        "entertainment": "divertissement",
+        "general": "actualites",
+        "health": "sante",
+        "politics": "politique",
+        "science": "science",
+        "sports": "sport",
+        "technology": "technologie",
+        "world": "monde",
+    },
+    "hi": {
+        "business": "बिजनेस",
+        "culture": "संस्कृति",
+        "entertainment": "मनोरंजन",
+        "general": "समाचार",
+        "health": "स्वास्थ्य",
+        "politics": "राजनीति",
+        "science": "विज्ञान",
+        "sports": "खेल",
+        "technology": "तकनीक",
+        "world": "दुनिया",
+    },
+    "it": {
+        "business": "economia",
+        "culture": "cultura",
+        "entertainment": "spettacoli",
+        "general": "notizie",
+        "health": "salute",
+        "politics": "politica",
+        "science": "scienza",
+        "sports": "sport",
+        "technology": "tecnologia",
+        "world": "mondo",
+    },
+    "ja": {
+        "business": "経済",
+        "culture": "文化",
+        "entertainment": "エンタメ",
+        "general": "ニュース",
+        "health": "健康",
+        "politics": "政治",
+        "science": "科学",
+        "sports": "スポーツ",
+        "technology": "テクノロジー",
+        "world": "国際",
+    },
+    "ko": {
+        "business": "경제",
+        "culture": "문화",
+        "entertainment": "연예",
+        "general": "뉴스",
+        "health": "건강",
+        "politics": "정치",
+        "science": "과학",
+        "sports": "스포츠",
+        "technology": "기술",
+        "world": "국제",
+    },
+    "nl": {
+        "business": "economie",
+        "culture": "cultuur",
+        "entertainment": "entertainment",
+        "general": "nieuws",
+        "health": "gezondheid",
+        "politics": "politiek",
+        "science": "wetenschap",
+        "sports": "sport",
+        "technology": "technologie",
+        "world": "wereld",
+    },
+    "ro": {
+        "business": "economie",
+        "culture": "cultura",
+        "entertainment": "divertisment",
+        "general": "stiri",
+        "health": "sanatate",
+        "politics": "politica",
+        "science": "stiinta",
+        "sports": "sport",
+        "technology": "tehnologie",
+        "world": "international",
+    },
+    "ru": {
+        "business": "экономика",
+        "culture": "культура",
+        "entertainment": "развлечения",
+        "general": "новости",
+        "health": "здоровье",
+        "politics": "политика",
+        "science": "наука",
+        "sports": "спорт",
+        "technology": "технологии",
+        "world": "мир",
+    },
+    "tr": {
+        "business": "ekonomi",
+        "culture": "kultur sanat",
+        "entertainment": "magazin",
+        "general": "haber",
+        "health": "saglik",
+        "politics": "siyaset",
+        "science": "bilim",
+        "sports": "spor",
+        "technology": "teknoloji",
+        "world": "dunya",
+    },
+    "vi": {
+        "business": "kinh doanh",
+        "culture": "van hoa",
+        "entertainment": "giai tri",
+        "general": "tin tuc",
+        "health": "suc khoe",
+        "politics": "chinh tri",
+        "science": "khoa hoc",
+        "sports": "the thao",
+        "technology": "cong nghe",
+        "world": "the gioi",
+    },
+    "zh": {
+        "business": "财经",
+        "culture": "文化",
+        "entertainment": "娱乐",
+        "general": "新闻",
+        "health": "健康",
+        "politics": "政治",
+        "science": "科学",
+        "sports": "体育",
+        "technology": "科技",
+        "world": "国际",
+    },
+}
+
+LANGUAGE_SOURCE_SEEDS = {
+    "ar": [
+        {"name": "Al Jazeera Arabic", "domain": "aljazeera.net", "country": "QA"},
+        {"name": "Al Arabiya", "domain": "alarabiya.net", "country": "SA"},
+        {"name": "Sky News Arabia", "domain": "skynewsarabia.com", "country": "AE"},
+    ],
+    "de": [
+        {"name": "Tagesschau", "domain": "tagesschau.de", "country": "DE"},
+        {"name": "Der Spiegel", "domain": "spiegel.de", "country": "DE"},
+        {"name": "Die Welt", "domain": "welt.de", "country": "DE"},
+    ],
+    "en": [
+        {"name": "BBC", "domain": "bbc.com", "country": "GB"},
+        {"name": "Reuters", "domain": "reuters.com", "country": "US"},
+        {"name": "The Guardian", "domain": "theguardian.com", "country": "GB"},
+    ],
+    "es": [
+        {"name": "El Pais", "domain": "elpais.com", "country": "ES"},
+        {"name": "El Mundo", "domain": "elmundo.es", "country": "ES"},
+        {"name": "La Vanguardia", "domain": "lavanguardia.com", "country": "ES"},
+    ],
+    "fr": [
+        {"name": "Le Monde", "domain": "lemonde.fr", "country": "FR"},
+        {"name": "Le Figaro", "domain": "lefigaro.fr", "country": "FR"},
+        {"name": "France24", "domain": "france24.com", "country": "FR"},
+    ],
+    "hi": [
+        {"name": "Dainik Jagran", "domain": "jagran.com", "country": "IN"},
+        {"name": "Aaj Tak", "domain": "aajtak.in", "country": "IN"},
+        {"name": "NDTV India", "domain": "ndtv.in", "country": "IN"},
+    ],
+    "it": [
+        {"name": "ANSA", "domain": "ansa.it", "country": "IT"},
+        {"name": "La Repubblica", "domain": "repubblica.it", "country": "IT"},
+        {"name": "Corriere della Sera", "domain": "corriere.it", "country": "IT"},
+    ],
+    "ja": [
+        {"name": "NHK", "domain": "nhk.or.jp", "country": "JP"},
+        {"name": "Asahi", "domain": "asahi.com", "country": "JP"},
+        {"name": "Mainichi", "domain": "mainichi.jp", "country": "JP"},
+    ],
+    "ko": [
+        {"name": "Yonhap", "domain": "yna.co.kr", "country": "KR"},
+        {"name": "Hankyoreh", "domain": "hani.co.kr", "country": "KR"},
+        {"name": "KBS", "domain": "kbs.co.kr", "country": "KR"},
+    ],
+    "nl": [
+        {"name": "NOS", "domain": "nos.nl", "country": "NL"},
+        {"name": "NU", "domain": "nu.nl", "country": "NL"},
+        {"name": "de Volkskrant", "domain": "volkskrant.nl", "country": "NL"},
+    ],
+    "ro": [
+        {"name": "HotNews", "domain": "hotnews.ro", "country": "RO"},
+        {"name": "Digi24", "domain": "digi24.ro", "country": "RO"},
+        {"name": "Adevarul", "domain": "adevarul.ro", "country": "RO"},
+    ],
+    "ru": [
+        {"name": "TASS", "domain": "tass.ru", "country": "RU"},
+        {"name": "RIA Novosti", "domain": "ria.ru", "country": "RU"},
+        {"name": "Lenta", "domain": "lenta.ru", "country": "RU"},
+    ],
+    "tr": [
+        {"name": "TRT Haber", "domain": "trthaber.com", "country": "TR"},
+        {"name": "Hurriyet", "domain": "hurriyet.com.tr", "country": "TR"},
+        {"name": "NTV", "domain": "ntv.com.tr", "country": "TR"},
+    ],
+    "vi": [
+        {"name": "VNExpress", "domain": "vnexpress.net", "country": "VN"},
+        {"name": "Tuoi Tre", "domain": "tuoitre.vn", "country": "VN"},
+        {"name": "Dan Tri", "domain": "dantri.com.vn", "country": "VN"},
+    ],
+    "zh": [
+        {"name": "Xinhua", "domain": "news.cn", "country": "CN"},
+        {"name": "People CN", "domain": "people.com.cn", "country": "CN"},
+        {"name": "China News", "domain": "chinanews.com.cn", "country": "CN"},
+    ],
+}
+
+CATEGORY_TOPIC_KEYS = [
+    "general",
+    "world",
+    "politics",
+    "business",
+    "technology",
+    "science",
+    "health",
+    "sports",
+    "entertainment",
+    "culture",
+]
+
+LANGUAGE_TOPIC_DOMAIN_OVERRIDES = {
+    "ar": {
+        "business": {"name": "BBC Arabic", "domain": "bbc.com", "country": "QA"},
+        "culture": {"name": "BBC Arabic", "domain": "bbc.com", "country": "QA"},
+        "health": {"name": "BBC Arabic", "domain": "bbc.com", "country": "QA"},
+        "sports": {"name": "CNN Arabic", "domain": "arabic.cnn.com", "country": "AE"},
+        "technology": {"name": "BBC Arabic", "domain": "bbc.com", "country": "QA"},
+        "world": {"name": "CNN Arabic", "domain": "arabic.cnn.com", "country": "AE"},
+    },
+    "de": {
+        "world": {"name": "Die Welt", "domain": "welt.de", "country": "DE"},
+    },
+    "en": {
+        "technology": {"name": "BBC", "domain": "bbc.com", "country": "GB"},
+    },
+    "fr": {
+        "business": {"name": "Le Figaro", "domain": "lefigaro.fr", "country": "FR"},
+        "health": {"name": "Le Figaro", "domain": "lefigaro.fr", "country": "FR"},
+    },
+    "hi": {
+        "entertainment": {"name": "BBC Hindi", "domain": "bbc.com", "country": "IN"},
+        "health": {"name": "BBC Hindi", "domain": "bbc.com", "country": "IN"},
+        "politics": {"name": "Aaj Tak", "domain": "aajtak.in", "country": "IN"},
+        "science": {"name": "BBC Hindi", "domain": "bbc.com", "country": "IN"},
+        "technology": {"name": "BBC Hindi", "domain": "bbc.com", "country": "IN"},
+    },
+    "it": {
+        "politics": {"name": "ANSA", "domain": "ansa.it", "country": "IT"},
+    },
+    "ja": {
+        "world": {"name": "Mainichi", "domain": "mainichi.jp", "country": "JP"},
+    },
+    "nl": {
+        "entertainment": {"name": "NOS", "domain": "nos.nl", "country": "NL"},
+        "politics": {"name": "NOS", "domain": "nos.nl", "country": "NL"},
+        "science": {"name": "NOS", "domain": "nos.nl", "country": "NL"},
+        "sports": {"name": "NOS", "domain": "nos.nl", "country": "NL"},
+        "technology": {"name": "Tweakers", "domain": "tweakers.net", "country": "NL"},
+        "world": {"name": "NOS", "domain": "nos.nl", "country": "NL"},
+    },
+    "ru": {
+        "business": {"name": "RIA Novosti", "domain": "ria.ru", "country": "RU"},
+        "culture": {"name": "RIA Novosti", "domain": "ria.ru", "country": "RU"},
+        "health": {"name": "Interfax", "domain": "interfax.ru", "country": "RU"},
+        "politics": {"name": "RIA Novosti", "domain": "ria.ru", "country": "RU"},
+        "world": {"name": "RIA Novosti", "domain": "ria.ru", "country": "RU"},
+    },
+}
+
+GOOGLE_TOPIC_DISABLED_LANGUAGES = {"vi", "zh"}
+
+ENABLE_GOOGLE_TOPIC_SOURCES = str(os.getenv("ENABLE_GOOGLE_TOPIC_SOURCES", "0") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+
+DIRECT_TOPIC_ALIAS_SOURCES = {
+    "vi": [
+        {"key": "vi_dantri_world_alias", "name": "Dan Tri World", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "world", "country": "VN"},
+        {"key": "vi_tuoitre_politics_alias", "name": "Tuoi Tre Politics", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss", "topic": "politics", "country": "VN"},
+        {"key": "vi_dantri_business_alias", "name": "Dan Tri Business", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "business", "country": "VN"},
+        {"key": "vi_thanhnien_technology_alias", "name": "Thanh Nien Technology", "rss_url": "https://thanhnien.vn/rss/home.rss", "topic": "technology", "country": "VN"},
+        {"key": "vi_dantri_science_alias", "name": "Dan Tri Science", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "science", "country": "VN"},
+        {"key": "vi_dantri_health_alias", "name": "Dan Tri Health", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "health", "country": "VN"},
+        {"key": "vi_tuoitre_sports_alias", "name": "Tuoi Tre Sports", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss", "topic": "sports", "country": "VN"},
+        {"key": "vi_tuoitre_entertainment_alias", "name": "Tuoi Tre Entertainment", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss", "topic": "entertainment", "country": "VN"},
+        {"key": "vi_thanhnien_culture_alias", "name": "Thanh Nien Culture", "rss_url": "https://thanhnien.vn/rss/home.rss", "topic": "culture", "country": "VN"},
+    ],
+    "zh": [
+        {"key": "zh_chinanews_business_alias", "name": "China News Business", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "business", "country": "CN"},
+        {"key": "zh_chinanews_culture_alias", "name": "China News Culture", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "culture", "country": "CN"},
+        {"key": "zh_chinanews_entertainment_alias", "name": "China News Entertainment", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "entertainment", "country": "CN"},
+        {"key": "zh_chinanews_health_alias", "name": "China News Health", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "health", "country": "CN"},
+        {"key": "zh_chinanews_politics_alias", "name": "China News Politics", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "politics", "country": "CN"},
+        {"key": "zh_chinanews_science_alias", "name": "China News Science", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "science", "country": "CN"},
+        {"key": "zh_chinanews_sports_alias", "name": "China News Sports", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "sports", "country": "CN"},
+        {"key": "zh_globaltimes_technology_alias", "name": "Global Times Technology", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml", "topic": "technology", "country": "CN"},
+        {"key": "zh_globaltimes_world_alias", "name": "Global Times World", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml", "topic": "world", "country": "CN"},
+    ],
+}
+
+DIRECT_TOPIC_SEED_SOURCES = {
+    "ar": {"name": "BBC Arabic", "rss_url": "https://feeds.bbci.co.uk/arabic/rss.xml", "country": "QA"},
+    "de": {"name": "Tagesschau", "rss_url": "https://www.tagesschau.de/xml/rss2", "country": "DE"},
+    "en": {"name": "BBC World", "rss_url": "https://feeds.bbci.co.uk/news/world/rss.xml", "country": "GB"},
+    "es": {"name": "El Pais", "rss_url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "country": "ES"},
+    "fr": {"name": "Le Figaro", "rss_url": "https://www.lefigaro.fr/rss/figaro_actualites.xml", "country": "FR"},
+    "hi": {"name": "BBC Hindi", "rss_url": "https://feeds.bbci.co.uk/hindi/rss.xml", "country": "IN"},
+    "it": {"name": "ANSA", "rss_url": "https://www.ansa.it/sito/ansait_rss.xml", "country": "IT"},
+    "ja": {"name": "NHK", "rss_url": "https://www3.nhk.or.jp/rss/news/cat0.xml", "country": "JP"},
+    "ko": {"name": "Hankyoreh", "rss_url": "https://www.hani.co.kr/rss/", "country": "KR"},
+    "nl": {"name": "NOS", "rss_url": "https://feeds.nos.nl/nosnieuwsalgemeen", "country": "NL"},
+    "ro": {"name": "HotNews", "rss_url": "https://hotnews.ro/rss", "country": "RO"},
+    "ru": {"name": "Interfax", "rss_url": "https://www.interfax.ru/rss.asp", "country": "RU"},
+    "tr": {"name": "TRT Haber", "rss_url": "https://www.trthaber.com/sondakika.rss", "country": "TR"},
+    "vi": {"name": "Dan Tri", "rss_url": "https://dantri.com.vn/rss/home.rss", "country": "VN"},
+    "zh": {"name": "Global Times", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml", "country": "CN"},
+}
+
+
+def slugify_key(text: str) -> str:
+    raw = unescape(str(text or "")).replace("\xa0", " ")
+    value = re.sub(r"\s+", " ", raw).strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "_", value)
+    return value.strip("_")
+
+
+def google_news_locale(language_key: str, country_key: str):
+    hint = GOOGLE_NEWS_LOCALE_HINTS.get(language_key)
+    if hint:
+        return hint["hl"], hint["gl"], hint["ceid"]
+    country = (country_key or "US").upper()
+    return "en-US", country, f"{country}:en"
+
+
+def topic_query_term(topic_key: str, language_key: str) -> str:
+    lang_terms = TOPIC_QUERY_TERMS.get(language_key, TOPIC_QUERY_TERMS.get("en", {}))
+    return lang_terms.get(topic_key, topic_key)
+
+
+def build_google_news_rss_url(query: str, language_key: str, country_key: str) -> str:
+    query = re.sub(r"\s+", " ", str(query or "")).strip()
+    if not query:
+        query = "news"
+    hl, gl, ceid = google_news_locale(language_key, country_key)
+    params = urlencode(
+        {"q": query, "hl": hl, "gl": gl, "ceid": ceid},
+        quote_via=quote_plus,
+    )
+    return f"https://news.google.com/rss/search?{params}"
+
+
+def build_google_topic_source_extensions():
+    extensions = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
+    for language_key, seeds in LANGUAGE_SOURCE_SEEDS.items():
+        if language_key in GOOGLE_TOPIC_DISABLED_LANGUAGES:
+            continue
+        if not seeds:
+            continue
+        for idx, topic_key in enumerate(CATEGORY_TOPIC_KEYS):
+            seed = seeds[idx % len(seeds)]
+            source_key = f"{language_key}_{slugify_key(seed['name'])}_{topic_key}_gn"
+            topic_term = topic_query_term(topic_key, language_key)
+            query = f"site:{seed['domain']} {topic_term}".strip()
+            country = seed.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language_key, "US")
+            extensions[language_key].append(
+                {
+                    "key": source_key,
+                    "name": f"{seed['name']} {TOPIC_CONFIGS.get(topic_key, {}).get('name', topic_key.title())}",
+                    "rss_url": build_google_news_rss_url(query, language_key, country),
+                    "topic": topic_key,
+                    "country": country,
+                    "site_domain": seed["domain"],
+                    "feed_source": "google_news",
+                }
+            )
+    return extensions
+
+
+GOOGLE_TOPIC_SOURCE_EXTENSIONS = build_google_topic_source_extensions()
+
+
+def build_google_topic_source_overrides():
+    extensions = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
+    for language_key, topics in LANGUAGE_TOPIC_DOMAIN_OVERRIDES.items():
+        if language_key in GOOGLE_TOPIC_DISABLED_LANGUAGES:
+            continue
+        for topic_key, seed in topics.items():
+            country = seed.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language_key, "US")
+            source_key = f"{language_key}_{slugify_key(seed['name'])}_{topic_key}_gnx"
+            topic_term = topic_query_term(topic_key, language_key)
+            query = f"site:{seed['domain']} {topic_term}".strip()
+            extensions[language_key].append(
+                {
+                    "key": source_key,
+                    "name": f"{seed['name']} {TOPIC_CONFIGS.get(topic_key, {}).get('name', topic_key.title())}",
+                    "rss_url": build_google_news_rss_url(query, language_key, country),
+                    "topic": topic_key,
+                    "country": country,
+                    "site_domain": seed["domain"],
+                    "feed_source": "google_news_override",
+                }
+            )
+    return extensions
+
+
+GOOGLE_TOPIC_SOURCE_OVERRIDES = build_google_topic_source_overrides()
+
+
+def build_direct_topic_seed_aliases():
+    aliases = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
+    for language_key, seed in DIRECT_TOPIC_SEED_SOURCES.items():
+        country = seed.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language_key, "US")
+        for topic_key in CATEGORY_TOPIC_KEYS:
+            alias_key = f"{language_key}_{slugify_key(seed['name'])}_{topic_key}_dalias"
+            aliases[language_key].append(
+                {
+                    "key": alias_key,
+                    "name": f"{seed['name']} {TOPIC_CONFIGS.get(topic_key, {}).get('name', topic_key.title())}",
+                    "rss_url": seed["rss_url"],
+                    "topic": topic_key,
+                    "country": country,
+                    "feed_source": "direct_alias",
+                }
+            )
+    return aliases
+
+
+DIRECT_TOPIC_SEED_ALIASES = build_direct_topic_seed_aliases()
+
+ENABLE_SOURCE_QUALITY_GATE = str(os.getenv("ENABLE_SOURCE_QUALITY_GATE", "1") or "").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+}
+ENABLE_DYNAMIC_QUALITY_GATE = str(os.getenv("ENABLE_DYNAMIC_QUALITY_GATE", "0") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+
+QUALITY_GATED_SOURCE_KEYS = {
+    "ar_aawsat",
+    "ar_al_arabiya_sports_gn",
+    "ar_al_arabiya_world_gn",
+    "ar_al_jazeera_arabic_business_gn",
+    "ar_al_jazeera_arabic_culture_gn",
+    "ar_al_jazeera_arabic_general_gn",
+    "ar_al_jazeera_arabic_health_gn",
+    "ar_aljazeera",
+    "ar_rt",
+    "ar_skynewsarabia",
+    "de_bild",
+    "de_der_spiegel_world_gn",
+    "de_dlf",
+    "de_spiegel",
+    "de_tagesschau_general_gn",
+    "dw_world",
+    "en_reuters_sports_gn",
+    "en_reuters_technology_gn",
+    "en_reuters_world_gn",
+    "es_el_pais_general_gn",
+    "es_elconfidencial",
+    "es_marca",
+    "fr_le_monde_business_gn",
+    "fr_france24",
+    "fr_le_monde_general_gn",
+    "fr_le_monde_health_gn",
+    "fr_liberation",
+    "fr_ouestfrance",
+    "hi_aaj_tak_technology_gn",
+    "hi_dainik_jagran_health_gn",
+    "hi_indiatv",
+    "hi_ndtv_india_entertainment_gn",
+    "hi_ndtv_india_politics_gn",
+    "hi_ndtv_india_science_gn",
+    "hi_ndtvindia",
+    "it_corriere_della_sera_politics_gn",
+    "it_fanpage",
+    "it_lastampa",
+    "ja_asahi",
+    "ja_asahi_world_gn",
+    "ja_47news",
+    "ja_jiji",
+    "ja_sankei",
+    "ja_tbs",
+    "ja_tokyo",
+    "ja_yomiuri",
+    "ko_chosun",
+    "ko_donga",
+    "ko_khan",
+    "nl_ad",
+    "nl_de_volkskrant_entertainment_gn",
+    "nl_de_volkskrant_politics_gn",
+    "nl_de_volkskrant_science_gn",
+    "nl_nu",
+    "nl_nu_sports_gn",
+    "nl_nu_technology_gn",
+    "nl_nu_world_gn",
+    "nl_parool",
+    "nl_rtl",
+    "nl_telegraaf",
+    "nl_trouw",
+    "nl_volkskrant",
+    "npr_world",
+    "reuters_world",
+    "ro_antena3",
+    "ro_mediafax",
+    "ro_ziare",
+    "ru_gazeta",
+    "ru_iz",
+    "ru_kommersant",
+    "ru_lenta_politics_gn",
+    "ru_rg",
+    "ru_ria_novosti_world_gn",
+    "ru_tass",
+    "ru_tass_business_gn",
+    "ru_tass_culture_gn",
+    "ru_tass_general_gn",
+    "ru_tass_health_gn",
+    "tr_ntvspor",
+    "tr_sozcu",
+    "vi_nld",
+    "vi_vnexpress",
+    "vi_tuoi_tre_technology_gn",
+    "vi_vov",
+    "vi_vtc",
+    "zh_cctv",
+    "zh_china_news_entertainment_gn",
+    "zh_china_news_science_gn",
+    "zh_huanqiu",
+    "zh_ifeng",
+    "zh_sohu",
+    "zh_xinhua_business_gn",
+    "zh_xinhua_culture_gn",
+    "zh_zaobao",
+    "ar_alarabiya",
+    "ar_al_arabiya_technology_gn",
+    "ar_bbc_arabic_world_gnx",
+    "de_tagesschau_world_gnx",
+    "es_abc",
+    "hi_aaj_tak_technology_gnx",
+    "nl_nos_technology_gnx",
+    "ru_ria",
+    "ru_ria_novosti_health_gnx",
+    "es_publico",
+    "es_rtve",
+    "fr_leparisien",
+    "hi_jagran",
+    "hi_livehindustan",
+    "hi_zee",
+    "it_adnkronos",
+    "it_rainews",
+    "ja_mainichi",
+    "ja_mainichi_business_dalias",
+    "ja_mainichi_culture_dalias",
+    "ja_mainichi_entertainment_dalias",
+    "ja_mainichi_general_dalias",
+    "ja_mainichi_health_dalias",
+    "ja_mainichi_politics_dalias",
+    "ja_mainichi_science_dalias",
+    "ja_mainichi_sports_dalias",
+    "ja_mainichi_technology_dalias",
+    "ja_mainichi_world_dalias",
+    "ja_nikkei",
+    "ko_joongang",
+    "ko_kbs",
+    "ko_mbc",
+    "ko_seoul",
+    "ko_yonhap",
+    "ko_yonhap_business_dalias",
+    "ko_yonhap_culture_dalias",
+    "ko_yonhap_entertainment_dalias",
+    "ko_yonhap_general_dalias",
+    "ko_yonhap_health_dalias",
+    "ko_yonhap_politics_dalias",
+    "ko_yonhap_science_dalias",
+    "ko_yonhap_sports_dalias",
+    "ko_yonhap_technology_dalias",
+    "ko_yonhap_world_dalias",
+    "nl_bnr",
+    "ro_euronews",
+    "vi_vietnamnet",
+    "vi_znews",
+    "zh_chinanews",
+    "zh_chinanews_business_alias",
+    "zh_chinanews_culture_alias",
+    "zh_chinanews_entertainment_alias",
+    "zh_chinanews_health_alias",
+    "zh_chinanews_politics_alias",
+    "zh_chinanews_science_alias",
+    "zh_chinanews_sports_alias",
+    "zh_stcn",
+}
+
+
+def load_dynamic_quality_gated_keys():
+    if not ENABLE_SOURCE_QUALITY_GATE or not ENABLE_DYNAMIC_QUALITY_GATE:
+        return set()
+
+    env_path = str(os.getenv("SOURCE_QUALITY_REPORT_PATH", "") or "").strip()
+    candidate_paths = []
+    if env_path:
+        candidate_paths.append(env_path)
+    report_dir = os.path.join(BASE_DIR, "source_validation_reports")
+    if os.path.isdir(report_dir):
+        json_files = [
+            os.path.join(report_dir, name)
+            for name in os.listdir(report_dir)
+            if name.startswith("source_validation_") and name.endswith(".json")
+        ]
+        if json_files:
+            latest = max(json_files, key=lambda p: os.path.getmtime(p))
+            candidate_paths.append(latest)
+
+    for path in candidate_paths:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+            results = payload.get("results") or []
+            failed = {
+                str(row.get("source_key", "") or "").strip()
+                for row in results
+                if isinstance(row, dict) and not row.get("pass")
+            }
+            failed.discard("")
+            if failed:
+                return failed
+        except Exception:
+            continue
+    return set()
+
+
+DYNAMIC_QUALITY_GATED_KEYS = load_dynamic_quality_gated_keys()
+
 
 def infer_topic(source_key: str, source_cfg: dict) -> str:
     explicit = re.sub(r"\s+", " ", str(source_cfg.get("topic", "") or "")).strip().lower()
@@ -453,6 +1174,20 @@ def infer_topic(source_key: str, source_cfg: dict) -> str:
         return "sports"
     if "world" in source_text:
         return "world"
+    if re.search(r"\b(politic|siyaset|politique|politik|politica|полит|政治)\b", source_text):
+        return "politics"
+    if re.search(r"\b(business|econom|finance|ekonomi|wirtschaft|economia|finanza|эконом|财经)\b", source_text):
+        return "business"
+    if re.search(r"\b(tech|technology|teknoloji|technologie|tecnologia|технолог|科技)\b", source_text):
+        return "technology"
+    if re.search(r"\b(science|bilim|wissenschaft|ciencia|scienza|наука|科学)\b", source_text):
+        return "science"
+    if re.search(r"\b(health|sağlık|saglik|sante|gesundheit|salud|salute|здоров|健康)\b", source_text):
+        return "health"
+    if re.search(r"\b(entertainment|magazin|show|celeb|娱乐|연예|मनोरंजन)\b", source_text):
+        return "entertainment"
+    if re.search(r"\b(culture|kultur|kültür|kultur|cultura|文化|культура)\b", source_text):
+        return "culture"
     return "general"
 
 
@@ -475,10 +1210,21 @@ def infer_region(country_key: str, source_cfg: dict) -> str:
 def build_news_sources():
     built = {}
     for lang_key, source_list in TOP_NEWS_SOURCES.items():
-        merged_sources = list(source_list) + TOPICAL_SOURCE_EXTENSIONS.get(lang_key, [])
+        merged_sources = (
+            list(source_list)
+            + TOPICAL_SOURCE_EXTENSIONS.get(lang_key, [])
+            + (GOOGLE_TOPIC_SOURCE_EXTENSIONS.get(lang_key, []) if ENABLE_GOOGLE_TOPIC_SOURCES else [])
+            + (GOOGLE_TOPIC_SOURCE_OVERRIDES.get(lang_key, []) if ENABLE_GOOGLE_TOPIC_SOURCES else [])
+            + DIRECT_TOPIC_SEED_ALIASES.get(lang_key, [])
+            + DIRECT_TOPIC_ALIAS_SOURCES.get(lang_key, [])
+        )
         for source in merged_sources:
             source_key = source["key"]
             if source_key in built:
+                continue
+            if ENABLE_SOURCE_QUALITY_GATE and (
+                source_key in QUALITY_GATED_SOURCE_KEYS or source_key in DYNAMIC_QUALITY_GATED_KEYS
+            ):
                 continue
             country = infer_country(lang_key, source_key, source)
             topic = infer_topic(source_key, source)
@@ -493,6 +1239,10 @@ def build_news_sources():
             }
             if source.get("rss_urls"):
                 built[source_key]["rss_urls"] = list(source["rss_urls"])
+            if source.get("site_domain"):
+                built[source_key]["site_domain"] = source["site_domain"]
+            if source.get("feed_source"):
+                built[source_key]["feed_source"] = source["feed_source"]
     return built
 
 
@@ -610,6 +1360,66 @@ CODE_NOISE_PATTERNS = [
     r"<(?:div|a|span|li|ul|script|style)\b",
 ]
 
+GENERIC_ARTICLE_TEXT_CLEANUP_PATTERNS = [
+    r"\b(read more|continue reading|devamı için tıklayın)\b",
+    r"\b(this is a developing story|story continues below)\b",
+    r"\bfollow us on (?:twitter|x|facebook|instagram|telegram)\b",
+    r"\bjoin our (?:newsletter|channel)\b",
+    r"\brelated (?:stories|news|articles?)\b",
+]
+
+DOMAIN_TEXT_CLEANUP_PATTERNS = {
+    "bbc.com": [
+        r"\bget all the latest .*? on the bbc\b",
+        r"\blisten to this article\b",
+    ],
+    "cnn.com": [
+        r"\bwatch this video\b",
+        r"\bcnn's .*? newsletter\b",
+    ],
+    "hurriyet.com.tr": [
+        r"\bhürriyet\.com\.tr'ye dön\b",
+        r"\bson dakika haberleri için tıklayınız\b",
+    ],
+    "ntv.com.tr": [
+        r"\bntv uygulamasını indir\b",
+    ],
+    "trthaber.com": [
+        r"\btrt haber mobil uygulamasını\b",
+    ],
+    "vnexpress.net": [
+        r"\bxem thêm\b",
+    ],
+}
+
+SOURCE_TEXT_CLEANUP_PATTERNS = {
+    "tr_hurriyet": [
+        r"\bHürriyet Gazetecilik ve Matbaacılık A\.Ş\.\b",
+        r"\bHürriyet Son Dakika\b",
+    ],
+    "tr_ntv": [
+        r"\bntv\.com\.tr farkıyla\b",
+    ],
+    "fr_lemonde": [
+        r"\ble monde avec afp\b",
+    ],
+    "de_spiegel": [
+        r"\bspiegel\+ abonnieren\b",
+    ],
+    "es_elpais": [
+        r"\blea también\b",
+    ],
+    "it_repubblica": [
+        r"\bcontinua a leggere\b",
+    ],
+    "ru_ria": [
+        r"\bчитайте также\b",
+    ],
+    "ja_nhk": [
+        r"\bNHK NEWS WEB\b",
+    ],
+}
+
 
 def recursive_unescape(text: str, rounds: int = 4) -> str:
     value = str(text or "")
@@ -651,6 +1461,31 @@ def normalize_extracted_text(text: str) -> str:
     text = text.replace("\u200b", " ")
     text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", " ", text)
     return normalize_text(text)
+
+
+SENTENCE_BOUNDARY_PATTERN = re.compile(r"(?<=[.!?…。！？؟])\s*")
+CJK_CHAR_PATTERN = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3]")
+
+
+def split_sentences(text: str):
+    text = normalize_extracted_text(text)
+    if not text:
+        return []
+    parts = [part.strip() for part in SENTENCE_BOUNDARY_PATTERN.split(text) if part.strip()]
+    return parts if parts else [text]
+
+
+def cjk_char_count(text: str) -> int:
+    return len(CJK_CHAR_PATTERN.findall(text or ""))
+
+
+def word_like_count(text: str) -> int:
+    text = normalize_extracted_text(text)
+    if not text:
+        return 0
+    latin_like_words = re.findall(r"\b[\w'-]+\b", text)
+    cjk_units = cjk_char_count(text) // 2
+    return max(len(latin_like_words), cjk_units)
 
 
 def looks_like_code_noise(text: str) -> bool:
@@ -711,11 +1546,12 @@ def filter_extracted_text_noise(text: str) -> str:
     text = normalize_extracted_text(text)
     if not text:
         return ""
-    chunks = [
-        normalize_extracted_text(chunk)
-        for chunk in re.split(r"\n+|\s+\|\s+|(?<=[.!?…])\s+", text)
-        if chunk.strip()
-    ]
+    chunks = []
+    for block in re.split(r"\n+|\s+\|\s+", text):
+        block = normalize_extracted_text(block)
+        if not block:
+            continue
+        chunks.extend(split_sentences(block))
     if not chunks:
         return text
 
@@ -748,8 +1584,8 @@ def score_article_candidate(text: str) -> float:
     if not text:
         return -10_000.0
 
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?…])\s+", text) if s.strip()]
-    words = re.findall(r"\b[\w'-]+\b", text)
+    sentences = split_sentences(text)
+    words = word_like_count(text)
     alpha_chars = len(
         re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿÇĞİÖŞÜçğıöşüА-Яа-я一-龯ぁ-んァ-ン]", text)
     )
@@ -771,7 +1607,7 @@ def score_article_candidate(text: str) -> float:
 
     if len(text) < 160:
         score -= 320
-    if len(words) < 40:
+    if words < 40:
         score -= 120
     if len(sentences) < 2:
         score -= 140
@@ -917,6 +1753,31 @@ def is_metadata_sentence(text: str, language_key: str) -> bool:
     return False
 
 
+def _source_cleanup_patterns(source_key: str = "", source_url: str = ""):
+    patterns = list(GENERIC_ARTICLE_TEXT_CLEANUP_PATTERNS)
+    source_key = normalize_text(source_key)
+    if source_key and source_key in SOURCE_TEXT_CLEANUP_PATTERNS:
+        patterns.extend(SOURCE_TEXT_CLEANUP_PATTERNS[source_key])
+
+    host = normalize_text(urlparse(source_url or "").netloc).lower()
+    host = re.sub(r"^www\d*\.", "", host)
+    if host:
+        for domain, domain_patterns in DOMAIN_TEXT_CLEANUP_PATTERNS.items():
+            if host.endswith(domain):
+                patterns.extend(domain_patterns)
+    return patterns
+
+
+def apply_source_text_cleanup(text: str, source_key: str = "", source_url: str = "") -> str:
+    cleaned = normalize_text(text)
+    if not cleaned:
+        return ""
+    for pattern in _source_cleanup_patterns(source_key, source_url):
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,-|")
+    return cleaned
+
+
 def strip_leading_metadata_prefix(text: str) -> str:
     sentence = normalize_text(text)
     if not sentence:
@@ -939,8 +1800,14 @@ def strip_leading_metadata_prefix(text: str) -> str:
     return re.sub(pattern, "", sentence, flags=re.IGNORECASE).strip()
 
 
-def clean_article_for_summarization(text: str, language_key: str, title: str = "") -> str:
-    text = normalize_text(text)
+def clean_article_for_summarization(
+    text: str,
+    language_key: str,
+    title: str = "",
+    source_key: str = "",
+    source_url: str = "",
+) -> str:
+    text = apply_source_text_cleanup(text, source_key=source_key, source_url=source_url)
     if not text:
         return ""
 
@@ -965,7 +1832,7 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
     # Many pages repeat the exact headline at the start of the article body.
     # Remove leading sentence(s) that are near-duplicates of the title.
     if title:
-        parts = re.split(r"(?<=[.!?])\s+", text)
+        parts = split_sentences(text)
         while parts and is_near_duplicate_text(parts[0], title):
             # Keep lead sentences that include substantial new details after the title.
             lead = normalize_text(parts[0])
@@ -980,7 +1847,9 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
             text = " ".join(parts)
 
     # Filter out metadata-only sentences (timestamps, publish/update labels).
-    sentence_parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+|\s+\|\s+", text) if p.strip()]
+    sentence_parts = []
+    for block in re.split(r"\s+\|\s+", text):
+        sentence_parts.extend(split_sentences(block))
     if sentence_parts:
         kept = []
         for idx, sentence in enumerate(sentence_parts):
@@ -993,6 +1862,7 @@ def clean_article_for_summarization(text: str, language_key: str, title: str = "
         if kept:
             text = " ".join(kept)
 
+    text = apply_source_text_cleanup(text, source_key=source_key, source_url=source_url)
     text = re.sub(r"\s+", " ", text).strip(" .,-")
     return text
 
@@ -1213,8 +2083,8 @@ def extract_article_text(html_text: str) -> str:
     return pick_best_article_text(candidates)
 
 
-@lru_cache(maxsize=256)
-def fetch_article_text(url: str) -> str:
+@lru_cache(maxsize=512)
+def fetch_article_text(url: str, source_key: str = "") -> str:
     if not url:
         return ""
     headers = {
@@ -1289,7 +2159,7 @@ def fetch_article_text(url: str) -> str:
 
     best = pick_best_article_text(candidates)
     if best:
-        return best
+        return apply_source_text_cleanup(best, source_key=source_key, source_url=resolved_url)
 
     # Robust fallback extractor for JS-heavy/complex templates.
     if trafilatura is not None:
@@ -1317,7 +2187,11 @@ def fetch_article_text(url: str) -> str:
                         fallback_candidates.append(normalize_extracted_text(text))
                 best_fallback = pick_best_article_text(fallback_candidates)
                 if best_fallback:
-                    return best_fallback
+                    return apply_source_text_cleanup(
+                        best_fallback,
+                        source_key=source_key,
+                        source_url=resolved_url,
+                    )
         except Exception:
             return ""
     return ""
@@ -1371,6 +2245,98 @@ def fetch_article_image(url: str) -> str:
     return extract_image_from_html(html_text)
 
 
+def _google_news_base64_id(url: str) -> str:
+    try:
+        parsed = urlparse(url or "")
+        path = [p for p in (parsed.path or "").split("/") if p]
+        if parsed.netloc.lower() != "news.google.com":
+            return ""
+        if len(path) < 2:
+            return ""
+        if path[-2] not in {"rss", "articles", "read"} and "articles" not in path:
+            return ""
+        return path[-1]
+    except Exception:
+        return ""
+
+
+def decode_google_news_url(url: str, headers: dict) -> str:
+    if requests is None:
+        return ""
+    base64_id = _google_news_base64_id(url)
+    if not base64_id:
+        return ""
+
+    signature = ""
+    timestamp = ""
+    for candidate in [
+        f"https://news.google.com/articles/{base64_id}",
+        f"https://news.google.com/rss/articles/{base64_id}",
+    ]:
+        try:
+            response = requests.get(
+                candidate,
+                headers=headers,
+                timeout=max(3, ARTICLE_FETCH_TIMEOUT),
+                allow_redirects=True,
+            )
+            if not response.ok:
+                continue
+            html = response.text or ""
+            sg_match = re.search(r'data-n-a-sg="([^"]+)"', html)
+            ts_match = re.search(r'data-n-a-ts="([^"]+)"', html)
+            if sg_match and ts_match:
+                signature = normalize_text(sg_match.group(1))
+                timestamp = normalize_text(ts_match.group(1))
+                break
+        except Exception:
+            continue
+
+    if not signature or not timestamp:
+        return ""
+
+    try:
+        payload = [
+            "Fbv4je",
+            (
+                '["garturlreq",[['
+                '"X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],'
+                '"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+                f'"{base64_id}",{timestamp},"{signature}"]'
+            ),
+        ]
+        request_body = "f.req=" + quote(json.dumps([[payload]]), safe="")
+        response = requests.post(
+            "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                "User-Agent": headers.get("User-Agent", "Mozilla/5.0"),
+                "Referer": "https://news.google.com/",
+            },
+            data=request_body,
+            timeout=max(3, ARTICLE_FETCH_TIMEOUT),
+        )
+        if not response.ok:
+            return ""
+
+        parts = (response.text or "").split("\n\n")
+        if len(parts) < 2:
+            return ""
+        parsed = json.loads(parts[1])[:-2]
+        if not parsed:
+            return ""
+        decoded_url = json.loads(parsed[0][2])[1]
+        decoded_url = normalize_text(decoded_url)
+        if not decoded_url:
+            return ""
+        decoded_host = urlparse(decoded_url).netloc.lower()
+        if decoded_host and "news.google.com" not in decoded_host:
+            return decoded_url
+    except Exception:
+        return ""
+    return ""
+
+
 def resolve_article_url(url: str, headers: dict) -> str:
     if not url:
         return url
@@ -1382,6 +2348,9 @@ def resolve_article_url(url: str, headers: dict) -> str:
         return url
     if requests is None:
         return url
+    decoded = decode_google_news_url(url, headers=headers)
+    if decoded:
+        return decoded
     try:
         response = requests.get(
             url,
@@ -1415,7 +2384,7 @@ def extractive_fallback(text: str, max_chars: int = 280, avoid_text: str = "") -
     text = re.sub(r"\s+", " ", text or "").strip()
     if not text:
         return ""
-    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]
+    parts = split_sentences(text)
     usable_parts = [p for p in parts if not (avoid_text and is_near_duplicate_text(p, avoid_text))]
     parts = usable_parts if usable_parts else parts
     picked_parts = []
@@ -1438,9 +2407,18 @@ def extractive_fallback(text: str, max_chars: int = 280, avoid_text: str = "") -
 
 
 def is_degenerate_summary(summary: str) -> bool:
-    tokens = re.findall(r"\b[\w'-]+\b", (summary or "").lower())
+    summary = normalize_extracted_text(summary)
+    tokens = re.findall(r"\b[\w'-]+\b", summary.lower())
     if len(tokens) < 8:
-        return False
+        cjk_chars = CJK_CHAR_PATTERN.findall(summary)
+        if len(cjk_chars) < 16:
+            return False
+        tokens = [
+            "".join(cjk_chars[idx : idx + 2])
+            for idx in range(0, max(0, len(cjk_chars) - 1))
+        ]
+        if len(tokens) < 8:
+            return False
     uniq_ratio = len(set(tokens)) / len(tokens)
     max_token_repeats = max(tokens.count(t) for t in set(tokens))
     return uniq_ratio < 0.38 or max_token_repeats > max(6, len(tokens) // 3)
@@ -1724,6 +2702,56 @@ def parse_rss(xml_content: bytes):
     return items
 
 
+def derive_site_domain(source_cfg: dict) -> str:
+    explicit = normalize_text(source_cfg.get("site_domain", "")).lower()
+    if explicit:
+        return explicit
+
+    rss_url = normalize_text(source_cfg.get("rss_url", "")).lower()
+    if not rss_url:
+        rss_urls = source_cfg.get("rss_urls") or []
+        if rss_urls:
+            rss_url = normalize_text(rss_urls[0]).lower()
+    if not rss_url:
+        return ""
+
+    host = normalize_text(urlparse(rss_url).netloc).lower()
+    if not host:
+        return ""
+    host = re.sub(r"^www\d*\.", "", host)
+    parts = [p for p in host.split(".") if p]
+    if len(parts) >= 3 and parts[0] in {"feeds", "feed", "rss", "news", "xml", "m"}:
+        host = ".".join(parts[1:])
+    return host
+
+
+def build_google_fallback_rss_urls(source_key: str, source_cfg: dict):
+    language = source_cfg.get("language", "en")
+    country = source_cfg.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language, "US")
+    topic = source_cfg.get("topic") or "general"
+    source_name = normalize_text(source_cfg.get("name", ""))
+    domain = derive_site_domain(source_cfg)
+
+    queries = []
+    if domain:
+        topic_term = topic_query_term(topic, language)
+        queries.append(f"site:{domain} {topic_term}")
+        queries.append(f"site:{domain} news")
+    if source_name:
+        queries.append(f'"{source_name}" {topic_query_term(topic, language)}')
+    queries.append(source_key.replace("_", " "))
+
+    urls = []
+    seen = set()
+    for query in queries:
+        rss_url = build_google_news_rss_url(query, language, country)
+        if rss_url in seen:
+            continue
+        seen.add(rss_url)
+        urls.append(rss_url)
+    return urls
+
+
 def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
     rss_urls = source_cfg.get("rss_urls") or [source_cfg["rss_url"]]
     entries = []
@@ -1765,6 +2793,38 @@ def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
                 str(exc)[:180],
             )
             continue
+
+    if not entries:
+        fallback_urls = build_google_fallback_rss_urls(source_key, source_cfg)
+        for fallback_url in fallback_urls:
+            try:
+                xml_content = b""
+                if requests is not None:
+                    response = requests.get(
+                        fallback_url,
+                        headers=RSS_FETCH_HEADERS,
+                        timeout=10,
+                        allow_redirects=True,
+                    )
+                    if response.ok:
+                        xml_content = response.content
+
+                if not xml_content:
+                    req = Request(fallback_url, headers=RSS_FETCH_HEADERS)
+                    with urlopen(req, timeout=10) as response:
+                        xml_content = response.read()
+
+                entries = parse_rss(xml_content)
+                if entries:
+                    app.logger.info(
+                        "rss_fallback_used source=%s fallback=%s entries=%s",
+                        source_key,
+                        fallback_url,
+                        len(entries),
+                    )
+                    break
+            except Exception:
+                continue
 
     for entry in entries:
         entry["source_key"] = source_key
@@ -2179,7 +3239,7 @@ def api_news():
         if current_count >= limit_per_source:
             continue
 
-        article_text = fetch_article_text(item["link"])
+        article_text = fetch_article_text(item["link"], source_key=item.get("source_key", ""))
         if not article_text:
             skipped_due_to_missing_article += 1
             app.logger.info(
@@ -2190,7 +3250,11 @@ def api_news():
             continue
 
         article_text = clean_article_for_summarization(
-            article_text, language, title=item["title"]
+            article_text,
+            language,
+            title=item["title"],
+            source_key=item.get("source_key", ""),
+            source_url=item.get("link", ""),
         )
         if not article_text:
             skipped_due_to_missing_article += 1
