@@ -1668,24 +1668,6 @@ def score_article_candidate(text: str) -> float:
     return score
 
 
-def is_low_quality_article_text(text: str, language_key: str = "") -> bool:
-    normalized = normalize_extracted_text(text)
-    if not normalized:
-        return True
-    if looks_like_code_noise(normalized):
-        return True
-    if re.search(r"<\s*(?:path|svg|script|style|div|span|a|li|ul)\b", normalized, flags=re.IGNORECASE):
-        return True
-    if re.search(r"(?:メニュー|menu)\s*(?:閉じる|close)", normalized, flags=re.IGNORECASE):
-        return True
-
-    min_words = 28 if language_key in {"ja", "ko", "zh"} else 35
-    if word_like_count(normalized) < min_words:
-        return True
-
-    return score_article_candidate(normalized) < 340
-
-
 def pick_best_article_text(candidates):
     scored = []
     for candidate in candidates:
@@ -3427,36 +3409,17 @@ def api_news():
                 source_url=item.get("link", ""),
             )
 
-        rss_fallback_text = clean_article_for_summarization(
-            item.get("description", ""),
-            language,
-            title=item["title"],
-            source_key=item.get("source_key", ""),
-            source_url=item.get("link", ""),
-        )
+        if not article_text:
+            skipped_due_to_missing_article += 1
+            app.logger.info(
+                "article_fetch_skip source=%s link=%s",
+                item["source_name"],
+                item["link"][:180],
+            )
+            continue
 
-        use_article_text = bool(article_text) and not is_low_quality_article_text(
-            article_text, language_key=language
-        )
-
-        if not use_article_text:
-            if article_text:
-                app.logger.info(
-                    "article_quality_fallback source=%s link=%s",
-                    item["source_name"],
-                    item["link"][:180],
-                )
-            if not rss_fallback_text:
-                skipped_due_to_missing_article += 1
-                app.logger.info(
-                    "article_fetch_skip source=%s link=%s",
-                    item["source_name"],
-                    item["link"][:180],
-                )
-                continue
-
-        text_for_summary = article_text if use_article_text else rss_fallback_text
-        summary_input_type = "article" if use_article_text else "rss"
+        text_for_summary = article_text
+        summary_input_type = "article"
 
         summary = summarize_article_cached(
             text_for_summary,
