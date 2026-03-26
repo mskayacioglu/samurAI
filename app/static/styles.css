@@ -249,12 +249,12 @@ body.light-theme .column-toggle-btn {
 
 .panel-toggle-btn {
   position: absolute;
-  top: 10px;
-  right: 8px;
-  z-index: 3;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  top: 0;
+  right: 0;
+  z-index: 4;
+  width: 40px;
+  height: 40px;
+  border-radius: 16px;
   border: 1px solid rgba(48, 106, 248, 0.42);
   background: rgb(47, 48, 50);
   color: var(--blue);
@@ -972,7 +972,7 @@ body.light-theme .panel-toggle-btn {
 }
 
 .app.panel-collapsed .panel-toggle-btn {
-  right: 2px;
+  right: 0;
 }
 
 .app.panel-collapsed .filter-rail .rail-body {
@@ -1000,42 +1000,77 @@ body.light-theme .rail-head {
 }
 
 .controls {
+  --control-label-width: 94px;
+  --inline-control-width: 46px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
   min-height: 0;
 }
 
-.controls label {
-  margin-top: 6px;
+.control-field {
+  display: grid;
+  grid-template-columns: var(--control-label-width) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+}
+
+.control-field > label {
+  margin: 0;
   font-weight: 600;
   color: var(--muted);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   font-size: 0.88rem;
+  text-align: left;
+}
+
+.control-field > select,
+.control-field > .source-checklist {
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+.control-field-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.control-field-list > label {
+  padding-top: 0;
 }
 
 .control-inline {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--control-label-width) minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 2px;
 }
 
 .control-inline > label {
-  margin-top: 0;
-  margin-right: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  font-size: 0.88rem;
+  text-align: left;
 }
 
 .control-inline-number input[type="number"] {
-  width: 74px;
-  min-width: 74px;
+  width: var(--inline-control-width);
+  max-width: var(--inline-control-width);
+  min-width: var(--inline-control-width);
   text-align: center;
-  margin-left: auto;
+  justify-self: end;
 }
 
 .control-inline-toggle .display-toggle {
-  margin-left: auto;
+  margin-left: 0;
+  width: var(--inline-control-width);
+  justify-self: end;
 }
 
 .control-inline-toggle .toggle-label {
@@ -1045,10 +1080,12 @@ body.light-theme .rail-head {
 .controls select,
 .controls input:not([type="checkbox"]),
 .controls button {
+  width: 100%;
+  min-width: 0;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  padding: 0 11px;
-  font-size: 0.92rem;
+  border: 1px solid transparent;
+  padding: 0 10px;
+  font-size: 0.88rem;
   font-family: inherit;
   appearance: none;
   -webkit-appearance: none;
@@ -1056,43 +1093,133 @@ body.light-theme .rail-head {
 
 .controls select,
 .controls input:not([type="checkbox"]) {
-  height: 38px;
+  height: 34px;
   color: var(--text);
-  background: rgb(24, 25, 28);
+  background: linear-gradient(162deg, rgba(33, 36, 41, 0.98), rgba(23, 25, 29, 0.95));
+  border-color: rgba(122, 132, 149, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.24);
   transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    background-color 140ms ease,
-    color 140ms ease;
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    filter 180ms ease;
 }
 
 body.light-theme .controls select,
 body.light-theme .controls input:not([type="checkbox"]) {
-  background: rgb(255, 255, 255);
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 252, 0.98));
+  border-color: rgba(147, 161, 180, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 8px 16px rgba(69, 93, 123, 0.16);
 }
 
 .controls select {
+  cursor: pointer;
   padding-right: 34px;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, rgba(208, 215, 227, 0.92) 50%),
+    linear-gradient(135deg, rgba(208, 215, 227, 0.92) 50%, transparent 50%),
+    linear-gradient(to right, rgba(123, 135, 154, 0.46), rgba(123, 135, 154, 0.46)),
+    linear-gradient(162deg, rgba(33, 36, 41, 0.98), rgba(23, 25, 29, 0.95));
   background-position:
-    calc(100% - 16px) calc(50% - 2px),
-    calc(100% - 11px) calc(50% - 2px);
-  background-size: 6px 6px, 6px 6px;
+    calc(100% - 15px) calc(50% - 3px),
+    calc(100% - 10px) calc(50% - 3px),
+    calc(100% - 27px) 50%,
+    0 0;
+  background-size:
+    6px 6px,
+    6px 6px,
+    1px 14px,
+    100% 100%;
   background-repeat: no-repeat;
+}
+
+body.light-theme .controls select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(87, 103, 125, 0.92) 50%),
+    linear-gradient(135deg, rgba(87, 103, 125, 0.92) 50%, transparent 50%),
+    linear-gradient(to right, rgba(123, 142, 170, 0.42), rgba(123, 142, 170, 0.42)),
+    linear-gradient(162deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 252, 0.98));
 }
 
 .controls select:hover,
 .controls input:not([type="checkbox"]):hover {
-  border-color: rgba(48, 106, 248, 0.45);
+  border-color: rgba(67, 131, 250, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 11px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.controls select:active,
+.controls input:not([type="checkbox"]):active {
+  transform: scale(0.995);
 }
 
 .controls select:focus-visible,
 .controls input:not([type="checkbox"]):focus-visible {
   outline: none;
-  border-color: rgba(48, 106, 248, 0.85);
-  box-shadow: 0 0 0 3px rgba(48, 106, 248, 0.2);
+  border-color: rgba(87, 147, 255, 0.92);
+  box-shadow:
+    0 0 0 3px rgba(48, 106, 248, 0.24),
+    0 14px 24px rgba(10, 15, 28, 0.38);
+  transform: translateY(-1px);
+}
+
+.controls select:open {
+  border-color: rgba(87, 147, 255, 0.94);
+  box-shadow:
+    0 0 0 3px rgba(48, 106, 248, 0.22),
+    0 16px 26px rgba(10, 15, 28, 0.45);
+  filter: brightness(1.04);
+}
+
+body.light-theme .controls select:open {
+  box-shadow:
+    0 0 0 3px rgba(48, 106, 248, 0.18),
+    0 14px 24px rgba(69, 93, 123, 0.23);
+}
+
+.controls select option {
+  font-size: 0.92rem;
+  padding: 10px 12px;
+  color: var(--text);
+  background: rgb(28, 31, 37);
+  transform-origin: left center;
+  animation: option-shrink 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.controls select option:hover {
+  background: rgba(48, 106, 248, 0.34);
+  color: rgb(245, 248, 255);
+  animation: option-grow 180ms cubic-bezier(0.18, 0.88, 0.32, 1.22) both;
+}
+
+.controls select option:checked {
+  color: rgb(255, 255, 255);
+  background: rgba(48, 106, 248, 0.48);
+  font-weight: 600;
+}
+
+body.light-theme .controls select option {
+  color: rgb(28, 37, 49);
+  background: rgb(244, 247, 252);
+}
+
+body.light-theme .controls select option:hover {
+  background: rgba(48, 106, 248, 0.22);
+  color: rgb(18, 27, 41);
+}
+
+body.light-theme .controls select option:checked {
+  color: rgb(14, 22, 35);
+  background: rgba(48, 106, 248, 0.3);
 }
 
 .controls input[type="number"]:not([type="checkbox"]) {
@@ -1109,15 +1236,22 @@ body.light-theme .controls input:not([type="checkbox"]) {
   min-height: 170px;
   max-height: 24vh;
   overflow: auto;
-  padding: 10px 10px;
+  padding: 11px 11px;
   scrollbar-width: thin;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: rgb(24, 25, 28);
+  border-radius: 12px;
+  border: 1px solid rgba(122, 132, 149, 0.58);
+  background: linear-gradient(162deg, rgba(33, 36, 41, 0.98), rgba(23, 25, 29, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.24);
 }
 
 body.light-theme .source-checklist {
-  background: rgb(255, 255, 255);
+  border-color: rgba(147, 161, 180, 0.62);
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 252, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 8px 16px rgba(69, 93, 123, 0.16);
 }
 
 .source-option {
@@ -1226,8 +1360,8 @@ body.light-theme .source-option input[type="checkbox"]:checked {
   position: absolute;
   inset: 0;
   cursor: pointer;
-  background: rgb(47, 48, 50);
-  border: 1px solid var(--border);
+  background: linear-gradient(162deg, rgba(33, 36, 41, 0.98), rgba(23, 25, 29, 0.95));
+  border: 1px solid rgba(122, 132, 149, 0.58);
   border-radius: 999px;
   transition:
     background-color 460ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -1235,7 +1369,8 @@ body.light-theme .source-option input[type="checkbox"]:checked {
 }
 
 body.light-theme .slider {
-  background: rgb(233, 238, 245);
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 252, 0.98));
+  border-color: rgba(147, 161, 180, 0.62);
 }
 
 .slider::before {
@@ -1300,6 +1435,24 @@ body.light-theme .column-toggle-btn:hover {
   transform: scale(0.98);
 }
 
+@keyframes option-grow {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes option-shrink {
+  from {
+    transform: scale(1.03);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 @keyframes card-in {
   from {
     opacity: 0;
@@ -1348,6 +1501,15 @@ body.light-theme .column-toggle-btn:hover {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
   }
+
+  .controls select,
+  .controls input:not([type="checkbox"]) {
+    transition: none;
+  }
+
+  .controls select option {
+    animation: none;
+  }
 }
 
 @media (max-width: 980px) {
@@ -1374,8 +1536,8 @@ body.light-theme .column-toggle-btn:hover {
 
   .panel-toggle-btn {
     position: static;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     margin-bottom: 10px;
   }
 
@@ -1414,6 +1576,22 @@ body.light-theme .column-toggle-btn:hover {
 
   .feed {
     grid-template-columns: 1fr;
+  }
+
+  .control-field,
+  .control-inline {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+
+  .control-field > label,
+  .control-inline > label {
+    padding-top: 0;
+  }
+
+  .control-inline-number input[type="number"],
+  .control-inline-toggle .display-toggle {
+    justify-self: end;
   }
 
   .source-checklist {

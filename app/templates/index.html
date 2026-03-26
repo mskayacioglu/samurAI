@@ -71,43 +71,57 @@
             <p>Filters</p>
           </div>
           <section class="controls">
-            <label for="language">Language</label>
-            <select id="language">
-              {% for key, language in languages.items() %}
-              <option value="{{ key }}" {% if key == default_language %}selected{% endif %}>
-                {{ language.name }}
-              </option>
-              {% endfor %}
-            </select>
+            <div class="control-field control-field-select">
+              <label for="language">Language</label>
+              <select id="language">
+                {% for key, language in languages.items() %}
+                <option value="{{ key }}" {% if key == default_language %}selected{% endif %}>
+                  {{ language.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
 
-            <label for="outputLanguage">Translate</label>
-            <select id="outputLanguage">
-              <option value="__source__">Original (Source Language)</option>
-              {% for key, language in languages.items() %}
-              <option value="{{ key }}">{{ language.name }}</option>
-              {% endfor %}
-            </select>
+            <div class="control-field control-field-select">
+              <label for="outputLanguage">Translate</label>
+              <select id="outputLanguage">
+                <option value="__source__">Original (Source Language)</option>
+                {% for key, language in languages.items() %}
+                <option value="{{ key }}">{{ language.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
 
-            <label for="topic">News Type</label>
-            <select id="topic"></select>
+            <div class="control-field control-field-select">
+              <label for="topic">News Type</label>
+              <select id="topic"></select>
+            </div>
 
-            <label for="region">Region</label>
-            <select id="region"></select>
+            <div class="control-field control-field-select">
+              <label for="region">Region</label>
+              <select id="region"></select>
+            </div>
 
-            <label for="country">Country</label>
-            <select id="country"></select>
+            <div class="control-field control-field-select">
+              <label for="country">Country</label>
+              <select id="country"></select>
+            </div>
 
-            <label for="sources">Sources</label>
-            <div id="sources" class="source-checklist"></div>
+            <div class="control-field control-field-list">
+              <label for="sources">Sources</label>
+              <div id="sources" class="source-checklist"></div>
+            </div>
 
-            <label for="model">Model</label>
-            <select id="model">
-              {% for key, _ in models.items() %}
-              <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
-                {{ key }}
-              </option>
-              {% endfor %}
-            </select>
+            <div class="control-field control-field-select">
+              <label for="model">Model</label>
+              <select id="model">
+                {% for key, _ in models.items() %}
+                <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
+                  {{ key }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
 
             <div class="control-inline control-inline-number">
               <label for="limit">Source</label>
