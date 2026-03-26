@@ -1262,7 +1262,43 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-MOJIBAKE_MARKERS = ("â", "Ã", "Â")
+MOJIBAKE_MARKERS = (
+    "â",
+    "Ã",
+    "Â",
+    "\u00e3\u0080",
+    "\u00e3\u0081",
+    "\u00e3\u0082",
+    "\u00e3\u0083",
+    "\u00e4\u00b8",
+    "\u00e5\u00ad",
+    "\u00e6\u0097",
+    "\u00f0\u009f",
+)
+COMMON_UTF8_MOJIBAKE_SEQUENCES = (
+    "ÄŸ",
+    "Äž",
+    "Ä±",
+    "Ä°",
+    "ÅŸ",
+    "Åž",
+    "Ã¼",
+    "Ãœ",
+    "Ã¶",
+    "Ã–",
+    "Ã§",
+    "Ã‡",
+    "Ã¢",
+    "Ãª",
+    "Ã®",
+    "Ã»",
+    "â€™",
+    "â€œ",
+    "â€",
+    "â€“",
+    "â€”",
+    "â€¦",
+)
 BOILERPLATE_PATTERNS = [
     r"\bcookie(?:s)?\b",
     r"\bprivacy policy\b",
@@ -1365,6 +1401,10 @@ CODE_NOISE_PATTERNS = [
     r'"@type"\s*:\s*"(?:liveblogposting|newsarticle|imageobject|breadcrumblist|organization)"',
     r'"contenturl"\s*:',
     r"<(?:div|a|span|li|ul|script|style)\b",
+    r"<path\b",
+    r"\bcurrentcolor\b",
+    r"\baria-label\s*=",
+    r"\bdatetime\s*=",
 ]
 
 GENERIC_ARTICLE_TEXT_CLEANUP_PATTERNS = [
@@ -1373,6 +1413,7 @@ GENERIC_ARTICLE_TEXT_CLEANUP_PATTERNS = [
     r"\bfollow us on (?:twitter|x|facebook|instagram|telegram)\b",
     r"\bjoin our (?:newsletter|channel)\b",
     r"\brelated (?:stories|news|articles?)\b",
+    r"(?i)(?:menu|メニュー)\s*(?:close|閉じる)",
 ]
 
 DOMAIN_TEXT_CLEANUP_PATTERNS = {
@@ -1440,7 +1481,11 @@ def recursive_unescape(text: str, rounds: int = 4) -> str:
 
 def mojibake_count(text: str) -> int:
     text = str(text or "")
-    return sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
+    marker_hits = sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
+    marker_hits += sum(text.count(marker) for marker in COMMON_UTF8_MOJIBAKE_SEQUENCES)
+    marker_hits += len(re.findall(r"[\u00c2\u00c3\u00e2\u00e3][\u0080-\u00bf]", text))
+    marker_hits += len(re.findall(r"[\u00e4-\u00e9][\u0080-\u00bf]{2,}", text))
+    return marker_hits
 
 
 def repair_mojibake(text: str) -> str:
@@ -1450,13 +1495,15 @@ def repair_mojibake(text: str) -> str:
         return text
     best = text
     best_bad = original_bad
-    for source_encoding in ("latin-1", "cp1252"):
+    for source_encoding in ("latin-1", "cp1252", "cp1254"):
         try:
             repaired = text.encode(source_encoding).decode("utf-8")
         except (UnicodeEncodeError, UnicodeDecodeError):
             continue
         repaired_bad = mojibake_count(repaired)
-        if repaired_bad < best_bad and len(repaired) >= int(len(text) * 0.9):
+        has_strong_cjk_signal = cjk_char_count(repaired) >= 6
+        similar_length = len(repaired) >= int(len(text) * 0.9)
+        if repaired_bad < best_bad and (similar_length or has_strong_cjk_signal):
             best = repaired
             best_bad = repaired_bad
     return best
@@ -1466,7 +1513,7 @@ def normalize_extracted_text(text: str) -> str:
     text = recursive_unescape(text)
     text = repair_mojibake(text)
     text = text.replace("\u200b", " ")
-    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", " ", text)
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]", " ", text)
     return normalize_text(text)
 
 
@@ -1621,6 +1668,24 @@ def score_article_candidate(text: str) -> float:
     return score
 
 
+def is_low_quality_article_text(text: str, language_key: str = "") -> bool:
+    normalized = normalize_extracted_text(text)
+    if not normalized:
+        return True
+    if looks_like_code_noise(normalized):
+        return True
+    if re.search(r"<\s*(?:path|svg|script|style|div|span|a|li|ul)\b", normalized, flags=re.IGNORECASE):
+        return True
+    if re.search(r"(?:メニュー|menu)\s*(?:閉じる|close)", normalized, flags=re.IGNORECASE):
+        return True
+
+    min_words = 28 if language_key in {"ja", "ko", "zh"} else 35
+    if word_like_count(normalized) < min_words:
+        return True
+
+    return score_article_candidate(normalized) < 340
+
+
 def pick_best_article_text(candidates):
     scored = []
     for candidate in candidates:
@@ -1640,21 +1705,101 @@ def _extract_charset(content_type: str) -> str:
     return (match.group(1) if match else "").strip()
 
 
-def decode_html_bytes(raw_bytes: bytes, content_type: str = "", hint_encoding: str = "") -> str:
+def _extract_meta_charset(raw_bytes: bytes) -> str:
+    if not raw_bytes:
+        return ""
+    # Meta tags are ASCII-compatible; parse from a short head slice.
+    head = raw_bytes[:16384].decode("ascii", errors="ignore")
+    patterns = [
+        r'(?is)<meta\b[^>]*charset=["\']?\s*([A-Za-z0-9._-]+)',
+        r'(?is)<meta\b[^>]*http-equiv=["\']content-type["\'][^>]*content=["\'][^"\']*charset\s*=\s*([A-Za-z0-9._-]+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, head)
+        if match:
+            return normalize_text(match.group(1)).lower()
+    return ""
+
+
+def infer_language_from_source_key(source_key: str) -> str:
+    key = normalize_text(source_key)
+    if not key:
+        return ""
+    cfg = NEWS_SOURCES.get(key)
+    if cfg:
+        lang = normalize_text(cfg.get("language", "")).lower()
+        if lang in LANGUAGE_CONFIGS:
+            return lang
+    prefix = key.split("_", 1)[0].lower()
+    return prefix if prefix in LANGUAGE_CONFIGS else ""
+
+
+def decode_html_bytes(
+    raw_bytes: bytes,
+    content_type: str = "",
+    hint_encoding: str = "",
+    language_key: str = "",
+) -> str:
     if not raw_bytes:
         return ""
 
     encodings = []
+    language_key = normalize_text(language_key).lower()
+    cjk_language = language_key in {"ja", "ko", "zh"}
+    meta_charset = _extract_meta_charset(raw_bytes)
+    header_charset = _extract_charset(content_type)
+    cjk_hint_text = " ".join([meta_charset, header_charset, hint_encoding]).lower()
+    cjk_encoding_hint = any(
+        token in cjk_hint_text
+        for token in (
+            "shift_jis",
+            "shift-jis",
+            "sjis",
+            "cp932",
+            "euc-jp",
+            "iso-2022-jp",
+            "cp949",
+            "euc-kr",
+            "gb18030",
+            "gbk",
+            "gb2312",
+            "big5",
+        )
+    )
+
     for candidate in [
-        hint_encoding,
-        _extract_charset(content_type),
+        meta_charset,
+        header_charset,
         "utf-8",
+        hint_encoding,
         "cp1254",
+        "cp1252",
         "latin-1",
     ]:
         candidate = normalize_text(candidate).lower()
         if candidate and candidate not in encodings:
             encodings.append(candidate)
+
+    if cjk_language or (not language_key and cjk_encoding_hint):
+        for candidate in [
+            "cp932",
+            "shift_jis",
+            "euc-jp",
+            "cp949",
+            "euc-kr",
+            "gb18030",
+            "gbk",
+            "big5",
+        ]:
+            if candidate not in encodings:
+                encodings.append(candidate)
+
+    utf8_is_valid = False
+    try:
+        raw_bytes.decode("utf-8", errors="strict")
+        utf8_is_valid = True
+    except UnicodeDecodeError:
+        utf8_is_valid = False
 
     best_text = ""
     best_score = float("-inf")
@@ -1666,7 +1811,26 @@ def decode_html_bytes(raw_bytes: bytes, content_type: str = "", hint_encoding: s
         normalized = normalize_extracted_text(decoded)
         if not normalized:
             continue
-        score = -normalized.count("�") * 4 - mojibake_count(normalized) * 2 + len(normalized) * 0.001
+        cjk_chars = cjk_char_count(normalized)
+        score = -normalized.count("�") * 8 - mojibake_count(normalized) * 4 + len(normalized) * 0.001
+        if encoding == "utf-8" and utf8_is_valid:
+            score += 6.0
+        if cjk_language:
+            score += cjk_chars * 0.35
+            if language_key == "ja":
+                kana_chars = len(re.findall(r"[\u3040-\u30ff]", normalized))
+                hangul_chars = len(re.findall(r"[\uac00-\ud7af]", normalized))
+                if hangul_chars > 12 and hangul_chars > kana_chars * 0.6:
+                    score -= min(420.0, hangul_chars * 8.0)
+        else:
+            # For non-CJK sources, CJK-heavy text is usually a mis-decoding artifact.
+            if cjk_chars > 8:
+                score -= min(420.0, cjk_chars * 6.0)
+            mixed_cjk = len(re.findall(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", normalized))
+            if mixed_cjk >= 3:
+                score -= min(320.0, mixed_cjk * 14.0)
+        if encoding in {"latin-1", "iso-8859-1", "cp1252"} and cjk_chars == 0:
+            score -= 1.5
         if score > best_score:
             best_score = score
             best_text = normalized
@@ -1776,7 +1940,7 @@ def _source_cleanup_patterns(source_key: str = "", source_url: str = ""):
 
 
 def apply_source_text_cleanup(text: str, source_key: str = "", source_url: str = "") -> str:
-    cleaned = normalize_text(text)
+    cleaned = normalize_extracted_text(text)
     if not cleaned:
         return ""
     for pattern in _source_cleanup_patterns(source_key, source_url):
@@ -2103,6 +2267,7 @@ def fetch_article_text(url: str, source_key: str = "") -> str:
         "Accept-Language": "en-US,en;q=0.9",
     }
 
+    language_key = infer_language_from_source_key(source_key)
     resolved_url = resolve_article_url(url, headers=headers)
     html_text = ""
     if requests is not None:
@@ -2122,6 +2287,7 @@ def fetch_article_text(url: str, source_key: str = "") -> str:
                     html_bytes,
                     content_type=content_type,
                     hint_encoding=(response.encoding or response.apparent_encoding or ""),
+                    language_key=language_key,
                 )
         except Exception:
             html_text = ""
@@ -2134,7 +2300,12 @@ def fetch_article_text(url: str, source_key: str = "") -> str:
                 if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
                     return ""
                 html_bytes = response.read(MAX_ARTICLE_CHARS * 4)
-                html_text = decode_html_bytes(html_bytes, content_type=content_type, hint_encoding="")
+                html_text = decode_html_bytes(
+                    html_bytes,
+                    content_type=content_type,
+                    hint_encoding="",
+                    language_key=language_key,
+                )
         except Exception:
             html_text = ""
 
@@ -3247,28 +3418,45 @@ def api_news():
             continue
 
         article_text = fetch_article_text(item["link"], source_key=item.get("source_key", ""))
-        if not article_text:
-            skipped_due_to_missing_article += 1
-            app.logger.info(
-                "article_fetch_skip source=%s link=%s",
-                item["source_name"],
-                item["link"][:180],
+        if article_text:
+            article_text = clean_article_for_summarization(
+                article_text,
+                language,
+                title=item["title"],
+                source_key=item.get("source_key", ""),
+                source_url=item.get("link", ""),
             )
-            continue
 
-        article_text = clean_article_for_summarization(
-            article_text,
+        rss_fallback_text = clean_article_for_summarization(
+            item.get("description", ""),
             language,
             title=item["title"],
             source_key=item.get("source_key", ""),
             source_url=item.get("link", ""),
         )
-        if not article_text:
-            skipped_due_to_missing_article += 1
-            continue
 
-        text_for_summary = article_text
-        summary_input_type = "article"
+        use_article_text = bool(article_text) and not is_low_quality_article_text(
+            article_text, language_key=language
+        )
+
+        if not use_article_text:
+            if article_text:
+                app.logger.info(
+                    "article_quality_fallback source=%s link=%s",
+                    item["source_name"],
+                    item["link"][:180],
+                )
+            if not rss_fallback_text:
+                skipped_due_to_missing_article += 1
+                app.logger.info(
+                    "article_fetch_skip source=%s link=%s",
+                    item["source_name"],
+                    item["link"][:180],
+                )
+                continue
+
+        text_for_summary = article_text if use_article_text else rss_fallback_text
+        summary_input_type = "article" if use_article_text else "rss"
 
         summary = summarize_article_cached(
             text_for_summary,
