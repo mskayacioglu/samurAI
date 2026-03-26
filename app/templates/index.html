@@ -80,7 +80,7 @@
               {% endfor %}
             </select>
 
-            <label for="outputLanguage">Output Language</label>
+            <label for="outputLanguage">Translate</label>
             <select id="outputLanguage">
               <option value="__source__">Original (Source Language)</option>
               {% for key, language in languages.items() %}
@@ -110,7 +110,7 @@
             </select>
 
             <div class="control-inline control-inline-number">
-              <label for="limit">Per Source</label>
+              <label for="limit">Source</label>
               <input id="limit" type="number" value="2" min="1" max="15" />
             </div>
 
@@ -784,7 +784,7 @@
             [
               `Loaded ${data.count} items`,
               `Source: ${languageName}`,
-              `Output: ${outputLanguageName}`,
+              `Translate: ${outputLanguageName}`,
               `Model: ${data.model}`,
               `Sources: ${selectedSources.length}`,
               `Topic: ${topicEl.options[topicEl.selectedIndex]?.text || "All Types"}`,

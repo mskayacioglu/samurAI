@@ -1122,7 +1122,7 @@ body.light-theme .source-checklist {
 
 .source-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   color: var(--muted);
   font-size: 0.9rem;
@@ -1136,6 +1136,7 @@ body.light-theme .source-checklist {
 
 .source-option span {
   color: var(--muted);
+  line-height: 1.3;
   transition: color 140ms ease;
 }
 
@@ -1153,7 +1154,7 @@ body.light-theme .source-checklist {
   aspect-ratio: 1 / 1;
   padding: 0;
   line-height: 0;
-  margin: 0;
+  margin: 2px 0 0;
   border: 1.5px solid rgba(138, 147, 161, 0.95);
   border-radius: 999px;
   background: rgb(143, 151, 165);
@@ -1228,7 +1229,9 @@ body.light-theme .source-option input[type="checkbox"]:checked {
   background: rgb(47, 48, 50);
   border: 1px solid var(--border);
   border-radius: 999px;
-  transition: 0.2s ease;
+  transition:
+    background-color 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 460ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body.light-theme .slider {
@@ -1244,7 +1247,7 @@ body.light-theme .slider {
   top: 3px;
   border-radius: 999px;
   background: rgb(255, 255, 255);
-  transition: 0.2s ease;
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .switch input:checked + .slider {
