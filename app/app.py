@@ -1126,8 +1126,14 @@ def load_dynamic_quality_gated_keys():
     candidate_paths = []
     if env_path:
         candidate_paths.append(env_path)
-    report_dir = os.path.join(BASE_DIR, "source_validation_reports")
-    if os.path.isdir(report_dir):
+
+    report_dirs = [
+        os.path.join(BASE_DIR, "source_validation_reports"),
+        os.path.join(PROJECT_ROOT, "evaluation", "source_validation_reports"),
+    ]
+    for report_dir in report_dirs:
+        if not os.path.isdir(report_dir):
+            continue
         json_files = [
             os.path.join(report_dir, name)
             for name in os.listdir(report_dir)
@@ -1135,7 +1141,8 @@ def load_dynamic_quality_gated_keys():
         ]
         if json_files:
             latest = max(json_files, key=lambda p: os.path.getmtime(p))
-            candidate_paths.append(latest)
+            if latest not in candidate_paths:
+                candidate_paths.append(latest)
 
     for path in candidate_paths:
         try:

@@ -5,7 +5,12 @@ Bu uygulama, belirlediğiniz RSS haber kaynaklarından güncel haberleri çeker,
 ## Kurulum
 
 ```bash
-cd /Users/mskayacioglu/Desktop/inf494_projet/news_flow_web
+cd /Users/mskayacioglu/Desktop/inf494_projet/app
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cd /Users/mskayacioglu/Desktop/inf494_projet/evaluation
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -14,6 +19,8 @@ pip install -r requirements.txt
 ## Çalıştırma
 
 ```bash
+cd /Users/mskayacioglu/Desktop/inf494_projet/app
+source .venv/bin/activate
 python app.py
 ```
 
@@ -66,14 +73,15 @@ Haber özetleme modellerini karşılaştırmak için `evaluate_models.py` script
 
 Örnek veri:
 
-`news_flow_web/examples/eval_dataset.sample.jsonl`
+`evaluation/examples/eval_dataset.sample.jsonl`
 
 ### Çalıştırma örneği
 
 ```bash
-cd /Users/mskayacioglu/Desktop/inf494_projet/news_flow_web
+cd /Users/mskayacioglu/Desktop/inf494_projet/evaluation
+source .venv/bin/activate
 ./run_evaluation.sh \
-  --dataset examples/eval_dataset.sample.jsonl \
+  --dataset ./examples/eval_dataset.sample.jsonl \
   --article-field article \
   --reference-field reference_summary \
   --title-field title \
@@ -89,7 +97,7 @@ cd /Users/mskayacioglu/Desktop/inf494_projet/news_flow_web
 
 ### Üretilen çıktılar
 
-Script varsayılan olarak `news_flow_web/eval_runs/run_<timestamp>/` altında üretir:
+Script varsayılan olarak `evaluation/eval_runs/run_<timestamp>/` altında üretir:
 
 - `detailed_metrics.csv`: örnek-bazlı skorlar
 - `model_summary.csv`: model ortalama/std skorlar
@@ -158,13 +166,16 @@ TRANSLATION_MODEL_REF=facebook/mbart-large-50-many-to-many-mmt python app.py
 Kaynakların erişim ve içerik kalitesini otomatik test etmek için:
 
 ```bash
-cd /Users/mskayacioglu/Desktop/inf494_projet/news_flow_web
-python validate_source_pool.py --language __all__ --sample-links 2 --workers 8
+cd /Users/mskayacioglu/Desktop/inf494_projet/app
+source .venv/bin/activate
+python validate_source_pool.py --language __all__ --sample-links 2 --workers 8 --output-dir ../evaluation/source_validation_reports
 ```
 
 Örnek daraltılmış koşu:
 
 ```bash
+cd /Users/mskayacioglu/Desktop/inf494_projet/app
+source .venv/bin/activate
 python validate_source_pool.py --language tr --topic business --max-sources 40
 ```
 

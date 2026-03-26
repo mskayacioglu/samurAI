@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_OUTPUT_DIR = SCRIPT_DIR.parent / "evaluation" / "source_validation_reports"
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Validate RSS and body quality across sources")
@@ -21,7 +24,7 @@ def parse_args():
     parser.add_argument("--min-quality-score", type=float, default=120.0, help="Min score_article_candidate")
     parser.add_argument(
         "--output-dir",
-        default="source_validation_reports",
+        default=str(DEFAULT_OUTPUT_DIR),
         help="Directory for report artifacts",
     )
     return parser.parse_args()

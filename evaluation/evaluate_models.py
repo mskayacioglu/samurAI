@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib
 import json
 import re
 import statistics
@@ -31,6 +32,10 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+APP_DIR = PROJECT_ROOT / "app"
 
 try:
     from rouge_score import rouge_scorer
@@ -93,7 +98,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         default="",
-        help="Output directory (default: news_flow_web/eval_runs/run_<timestamp>)",
+        help="Output directory (default: evaluation/eval_runs/run_<timestamp>)",
     )
     parser.add_argument(
         "--progress-every",
@@ -605,15 +610,38 @@ def ensure_dependencies() -> None:
 
 
 def load_summarization_runtime():
+    app_module_path = APP_DIR / "app.py"
+    if not app_module_path.exists():
+        raise SystemExit(
+            f"Cannot find runtime module: {app_module_path}. "
+            "Expected app runtime at app/app.py."
+        )
+
+    app_dir_str = str(APP_DIR)
+    if app_dir_str not in sys.path:
+        sys.path.insert(0, app_dir_str)
+
+    existing_module = sys.modules.get("app")
+    existing_file = Path(getattr(existing_module, "__file__", "")).resolve() if existing_module else None
+    if existing_module and existing_file != app_module_path.resolve():
+        del sys.modules["app"]
+
     try:
-        from app import LANGUAGE_CONFIGS, MODEL_PATHS, summarize_text
+        runtime = importlib.import_module("app")
     except ModuleNotFoundError as exc:
         raise SystemExit(
-            "Cannot import summarization runtime from app.py. "
+            "Cannot import summarization runtime from app/app.py. "
             f"Missing module: {exc.name}. Install project dependencies first."
         ) from exc
 
-    return LANGUAGE_CONFIGS, MODEL_PATHS, summarize_text
+    required = ["LANGUAGE_CONFIGS", "MODEL_PATHS", "summarize_text"]
+    missing = [name for name in required if not hasattr(runtime, name)]
+    if missing:
+        raise SystemExit(
+            f"Runtime module loaded from {app_module_path} but missing members: {', '.join(missing)}"
+        )
+
+    return runtime.LANGUAGE_CONFIGS, runtime.MODEL_PATHS, runtime.summarize_text
 
 
 def main() -> int:

@@ -1,0 +1,13 @@
+{
+  "dataset": "/Users/mskayacioglu/Desktop/inf494_projet/evaluation/examples/eval_dataset.sample.jsonl",
+  "article_field": "article",
+  "reference_field": "reference_summary",
+  "id_field": "id",
+  "title_field": "",
+  "models": [
+    "bart_reuters"
+  ],
+  "language": "en",
+  "sample_count": 1,
+  "generated_at": "2026-03-26T14:57:11.688722"
+}
