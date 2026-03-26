@@ -451,6 +451,7 @@ body.light-theme .status {
   grid-template-columns: repeat(var(--feed-cols, 2), minmax(0, 1fr));
   gap: 12px;
   align-items: start;
+  position: relative;
 }
 
 .feed-column {
@@ -602,26 +603,37 @@ body.light-theme .news-card.skeleton-card {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background: linear-gradient(
-    110deg,
-    transparent 0%,
-    transparent 32%,
-    var(--skeleton-highlight) 50%,
-    transparent 68%,
-    transparent 100%
+    112deg,
+    transparent 37%,
+    rgba(244, 248, 255, 0.14) 43%,
+    rgba(244, 248, 255, 0.5) 49%,
+    rgba(244, 248, 255, 0.9) 50%,
+    rgba(244, 248, 255, 0.5) 51%,
+    rgba(244, 248, 255, 0.14) 57%,
+    transparent 63%
   );
-  transform: translateX(-125%);
-  animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
+  background-repeat: no-repeat;
+  background-size: var(--skeleton-sweep-size-x, 1900px) var(--skeleton-sweep-size-y, 1300px);
+  background-position:
+    calc(var(--skeleton-sweep-x, -1300px) + var(--skeleton-offset-x, 0px))
+    calc(var(--skeleton-sweep-y, -820px) + var(--skeleton-offset-y, 0px));
+  opacity: 0.96;
 }
 
-.feed.is-loading[data-loading-scheme="dual"] .skeleton-block::after {
-  animation-name: skeleton-shimmer-reverse;
-  animation-duration: var(--skeleton-shimmer-dual-duration);
-}
-
-.feed.is-loading[data-loading-scheme="triple"] .skeleton-block::after {
-  animation-name: skeleton-shimmer;
-  animation-duration: var(--skeleton-shimmer-duration);
+body.light-theme .skeleton-block::after {
+  background: linear-gradient(
+    112deg,
+    transparent 37%,
+    rgba(255, 255, 255, 0.11) 43%,
+    rgba(255, 255, 255, 0.38) 49%,
+    rgba(255, 255, 255, 0.66) 50%,
+    rgba(255, 255, 255, 0.38) 51%,
+    rgba(255, 255, 255, 0.11) 57%,
+    transparent 63%
+  );
 }
 
 .skeleton-pill {
@@ -1328,36 +1340,8 @@ body.light-theme .column-toggle-btn:hover {
   }
 }
 
-@keyframes skeleton-shimmer {
-  from {
-    transform: translateX(-125%);
-  }
-  to {
-    transform: translateX(125%);
-  }
-}
-
-@keyframes skeleton-shimmer-reverse {
-  from {
-    transform: translateX(125%);
-  }
-  to {
-    transform: translateX(-125%);
-  }
-}
-
-@keyframes skeleton-shimmer-diagonal {
-  from {
-    transform: translateX(-120%) skewX(-12deg);
-  }
-  to {
-    transform: translateX(120%) skewX(-12deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .news-card.skeleton-card,
-  .skeleton-block::after {
+  .news-card.skeleton-card {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
   }

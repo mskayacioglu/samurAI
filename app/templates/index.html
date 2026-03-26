@@ -179,6 +179,12 @@
       let manualColumnCount = 2;
       let activeTheme = "dark";
       let isLoadingNews = false;
+      let skeletonSweepRafId = null;
+      let skeletonSweepStartTs = 0;
+      let skeletonSweepWidth = 0;
+      let skeletonSweepHeight = 0;
+      let skeletonSweepTextureWidth = 0;
+      let skeletonSweepTextureHeight = 0;
 
       function setTheme(themeName) {
         activeTheme = themeName === "light" ? "light" : "dark";
@@ -192,6 +198,11 @@
         try {
           localStorage.setItem("samurai_theme", activeTheme);
         } catch {}
+        if (isLoadingNews) {
+          requestAnimationFrame(() => {
+            syncSkeletonSweepGeometry();
+          });
+        }
       }
 
       function initTheme() {
@@ -457,7 +468,139 @@
         return "triple";
       }
 
+      function parseDurationToMs(rawValue, fallbackMs) {
+        if (!rawValue) return fallbackMs;
+        const value = rawValue.trim();
+        if (!value) return fallbackMs;
+        if (value.endsWith("ms")) {
+          const ms = Number.parseFloat(value);
+          return Number.isFinite(ms) && ms > 0 ? ms : fallbackMs;
+        }
+        if (value.endsWith("s")) {
+          const seconds = Number.parseFloat(value);
+          return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : fallbackMs;
+        }
+        const numeric = Number.parseFloat(value);
+        return Number.isFinite(numeric) && numeric > 0 ? numeric : fallbackMs;
+      }
+
+      function getSkeletonShimmerDurationMs() {
+        const cssValue = getComputedStyle(document.documentElement).getPropertyValue(
+          "--skeleton-shimmer-duration"
+        );
+        return parseDurationToMs(cssValue, 2500);
+      }
+
+      function stopSkeletonSweepAnimation() {
+        if (skeletonSweepRafId !== null) {
+          cancelAnimationFrame(skeletonSweepRafId);
+          skeletonSweepRafId = null;
+        }
+      }
+
+      function clearSkeletonSweepVars() {
+        feedEl.style.removeProperty("--skeleton-sweep-x");
+        feedEl.style.removeProperty("--skeleton-sweep-y");
+        feedEl.style.removeProperty("--skeleton-sweep-size-x");
+        feedEl.style.removeProperty("--skeleton-sweep-size-y");
+      }
+
+      function syncSkeletonSweepGeometry() {
+        if (!isLoadingNews || !feedEl.classList.contains("is-loading")) {
+          return;
+        }
+        const blocks = feedEl.querySelectorAll(".skeleton-block");
+        if (!blocks.length) {
+          return;
+        }
+
+        const feedRect = feedEl.getBoundingClientRect();
+        skeletonSweepWidth = Math.max(feedRect.width, 320);
+        skeletonSweepHeight = Math.max(feedRect.height, 240);
+        skeletonSweepTextureWidth = Math.max(Math.round(skeletonSweepWidth * 3.4), 900);
+        skeletonSweepTextureHeight = Math.max(Math.round(skeletonSweepHeight * 3.4), 700);
+
+        feedEl.style.setProperty("--skeleton-sweep-size-x", `${skeletonSweepTextureWidth}px`);
+        feedEl.style.setProperty("--skeleton-sweep-size-y", `${skeletonSweepTextureHeight}px`);
+
+        blocks.forEach((block) => {
+          const rect = block.getBoundingClientRect();
+          block.style.setProperty("--skeleton-offset-x", `${-(rect.left - feedRect.left)}px`);
+          block.style.setProperty("--skeleton-offset-y", `${-(rect.top - feedRect.top)}px`);
+        });
+      }
+
+      function setSkeletonSweepPosition(progress) {
+        if (
+          !skeletonSweepWidth ||
+          !skeletonSweepHeight ||
+          !skeletonSweepTextureWidth ||
+          !skeletonSweepTextureHeight
+        ) {
+          return;
+        }
+
+        // Keep loop reset outside the visible area so the cycle transition feels continuous.
+        const overscanX = skeletonSweepWidth * 0.48;
+        const overscanY = skeletonSweepHeight * 0.48;
+        const lineStartX = -overscanX;
+        const lineStartY = -overscanY;
+        const lineEndX = skeletonSweepWidth + overscanX;
+        const lineEndY = skeletonSweepHeight + overscanY;
+
+        const lineX = lineStartX + (lineEndX - lineStartX) * progress;
+        const lineY = lineStartY + (lineEndY - lineStartY) * progress;
+        const bgX = lineX - skeletonSweepTextureWidth * 0.5;
+        const bgY = lineY - skeletonSweepTextureHeight * 0.5;
+
+        feedEl.style.setProperty("--skeleton-sweep-x", `${Math.round(bgX)}px`);
+        feedEl.style.setProperty("--skeleton-sweep-y", `${Math.round(bgY)}px`);
+      }
+
+      function startSkeletonSweepAnimation() {
+        stopSkeletonSweepAnimation();
+        syncSkeletonSweepGeometry();
+        if (
+          !skeletonSweepWidth ||
+          !skeletonSweepHeight ||
+          !skeletonSweepTextureWidth ||
+          !skeletonSweepTextureHeight
+        ) {
+          return;
+        }
+
+        const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (prefersReducedMotion) {
+          setSkeletonSweepPosition(0.5);
+          return;
+        }
+
+        const durationMs = getSkeletonShimmerDurationMs();
+        skeletonSweepStartTs = performance.now();
+        setSkeletonSweepPosition(0);
+
+        const animate = (now) => {
+          if (!isLoadingNews || !feedEl.classList.contains("is-loading")) {
+            stopSkeletonSweepAnimation();
+            return;
+          }
+          const elapsed = now - skeletonSweepStartTs;
+          const progress = (elapsed % durationMs) / durationMs;
+          const easedProgress = 0.5 - Math.cos(Math.PI * progress) / 2;
+          setSkeletonSweepPosition(easedProgress);
+          skeletonSweepRafId = requestAnimationFrame(animate);
+        };
+
+        skeletonSweepRafId = requestAnimationFrame(animate);
+      }
+
       function clearLoadingFeedState() {
+        stopSkeletonSweepAnimation();
+        skeletonSweepWidth = 0;
+        skeletonSweepHeight = 0;
+        skeletonSweepTextureWidth = 0;
+        skeletonSweepTextureHeight = 0;
+        clearSkeletonSweepVars();
         feedEl.classList.remove("is-loading");
         delete feedEl.dataset.loadingScheme;
       }
@@ -535,6 +678,7 @@
           const card = createSkeletonCard(index, scheme, showImages);
           columns[index % columnCount].appendChild(card);
         }
+        startSkeletonSweepAnimation();
       }
 
       function renderFeed(items, options = {}) {
