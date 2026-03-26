@@ -335,7 +335,7 @@ body.light-theme .column-toggle-btn {
   color: rgba(240, 243, 247, 0.94);
   line-height: 1;
   position: relative;
-  left: 0;
+  left: 6px;
   width: max-content;
   transition: left 2400ms cubic-bezier(0.22, 1, 0.36, 1), transform 2400ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: left, transform;
@@ -963,7 +963,8 @@ body.light-theme .panel-toggle-btn {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
 }
 
@@ -1077,6 +1078,36 @@ body.light-theme .rail-head {
   display: none;
 }
 
+.translate-panel {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  margin-top: -16px;
+  pointer-events: none;
+  transition:
+    max-height 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.translate-panel.is-open {
+  overflow: visible;
+  max-height: 92px;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 4px;
+  padding-top: 2px;
+  pointer-events: auto;
+}
+
+.control-field-translate > select:hover,
+.control-field-translate > select:focus-visible,
+.control-field-translate > select:active {
+  transform: none;
+}
+
 .controls select,
 .controls input:not([type="checkbox"]),
 .controls button {
@@ -1120,30 +1151,22 @@ body.light-theme .controls input:not([type="checkbox"]) {
 
 .controls select {
   cursor: pointer;
-  padding-right: 34px;
+  padding-right: 30px;
   background-image:
-    linear-gradient(45deg, transparent 50%, rgba(208, 215, 227, 0.92) 50%),
-    linear-gradient(135deg, rgba(208, 215, 227, 0.92) 50%, transparent 50%),
-    linear-gradient(to right, rgba(123, 135, 154, 0.46), rgba(123, 135, 154, 0.46)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23cfd7e4' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
     linear-gradient(162deg, rgba(33, 36, 41, 0.98), rgba(23, 25, 29, 0.95));
   background-position:
-    calc(100% - 15px) calc(50% - 3px),
-    calc(100% - 10px) calc(50% - 3px),
-    calc(100% - 27px) 50%,
+    calc(100% - 12px) 50%,
     0 0;
   background-size:
-    6px 6px,
-    6px 6px,
-    1px 14px,
+    12px 8px,
     100% 100%;
   background-repeat: no-repeat;
 }
 
 body.light-theme .controls select {
   background-image:
-    linear-gradient(45deg, transparent 50%, rgba(87, 103, 125, 0.92) 50%),
-    linear-gradient(135deg, rgba(87, 103, 125, 0.92) 50%, transparent 50%),
-    linear-gradient(to right, rgba(123, 142, 170, 0.42), rgba(123, 142, 170, 0.42)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23586b86' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
     linear-gradient(162deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 252, 0.98));
 }
 
@@ -1235,7 +1258,8 @@ body.light-theme .controls select option:checked {
 .source-checklist {
   min-height: 170px;
   max-height: 24vh;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 11px 11px;
   scrollbar-width: thin;
   border-radius: 12px;
@@ -1271,6 +1295,7 @@ body.light-theme .source-checklist {
 .source-option span {
   color: var(--muted);
   line-height: 1.3;
+  overflow-wrap: anywhere;
   transition: color 140ms ease;
 }
 
@@ -1500,6 +1525,10 @@ body.light-theme .column-toggle-btn:hover {
   .news-card.skeleton-card {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .translate-panel {
+    transition: none;
   }
 
   .controls select,

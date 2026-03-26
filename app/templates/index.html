@@ -83,16 +83,6 @@
             </div>
 
             <div class="control-field control-field-select">
-              <label for="outputLanguage">Translate</label>
-              <select id="outputLanguage">
-                <option value="__source__">Original (Source Language)</option>
-                {% for key, language in languages.items() %}
-                <option value="{{ key }}">{{ language.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <div class="control-field control-field-select">
               <label for="topic">News Type</label>
               <select id="topic"></select>
             </div>
@@ -138,6 +128,29 @@
                 <span class="toggle-label">Show images</span>
               </div>
             </div>
+
+            <div class="control-inline control-inline-toggle">
+              <label for="enableTranslate">Translate</label>
+              <div class="display-toggle" id="translateMode">
+                <label class="switch">
+                  <input type="checkbox" id="enableTranslate" />
+                  <span class="slider"></span>
+                </label>
+                <span class="toggle-label">Enable translation</span>
+              </div>
+            </div>
+
+            <div id="translatePanel" class="translate-panel" aria-hidden="true">
+              <div class="control-field control-field-select control-field-translate">
+                <label for="outputLanguage">To</label>
+                <select id="outputLanguage">
+                  <option value="__source__">-</option>
+                  {% for key, language in languages.items() %}
+                  <option value="{{ key }}">{{ language.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
             <button id="refreshBtn">Refresh Feed</button>
           </section>
         </div>
@@ -177,6 +190,8 @@
       const cardTpl = document.getElementById("cardTemplate");
       const displayModeEl = document.getElementById("displayMode");
       const showImagesEl = document.getElementById("showImages");
+      const enableTranslateEl = document.getElementById("enableTranslate");
+      const translatePanelEl = document.getElementById("translatePanel");
       const appEl = document.querySelector(".app");
       const panelToggleBtn = document.getElementById("panelToggleBtn");
       const themeToggleBtn = document.getElementById("themeToggleBtn");
@@ -240,6 +255,16 @@
             img.classList.remove("hidden");
           }
         });
+      }
+
+      function applyTranslatePanelState() {
+        const translateEnabled = !!enableTranslateEl?.checked;
+        translatePanelEl.classList.toggle("is-open", translateEnabled);
+        translatePanelEl.setAttribute("aria-hidden", translateEnabled ? "false" : "true");
+        outputLanguageEl.disabled = !translateEnabled;
+        if (!translateEnabled) {
+          outputLanguageEl.value = "__source__";
+        }
       }
 
       function normalizeFilterValue(value) {
@@ -767,8 +792,14 @@
       async function loadNews() {
         applyDisplayModeInPlace();
         const selectedSources = getSelectedSources();
-        const outputLanguage =
-          outputLanguageEl.value === "__source__" ? languageEl.value : outputLanguageEl.value;
+        const translateEnabled = !!enableTranslateEl?.checked;
+        const outputLanguage = translateEnabled
+          ? outputLanguageEl.value === "__source__"
+            ? languageEl.value
+            : outputLanguageEl.value
+          : languageEl.value;
+        const selectedTranslateLabel =
+          outputLanguageEl.options[outputLanguageEl.selectedIndex]?.text || "-";
         const params = new URLSearchParams({
           language: languageEl.value,
           output_language: outputLanguage,
@@ -792,13 +823,11 @@
           }
 
           const languageName = allLanguages[data.language]?.name || data.language;
-          const outputLanguageName =
-            allLanguages[data.output_language]?.name || data.output_language;
           setStatus(
             [
               `Loaded ${data.count} items`,
               `Source: ${languageName}`,
-              `Translate: ${outputLanguageName}`,
+              `Translate: ${translateEnabled ? selectedTranslateLabel : "-"}`,
               `Model: ${data.model}`,
               `Sources: ${selectedSources.length}`,
               `Topic: ${topicEl.options[topicEl.selectedIndex]?.text || "All Types"}`,
@@ -847,6 +876,10 @@
         }
         applyDisplayModeInPlace();
       });
+      enableTranslateEl.addEventListener("change", () => {
+        applyTranslatePanelState();
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
       languageEl.addEventListener("change", () => {
         if (outputLanguageEl.value !== "__source__" && outputLanguageEl.value === languageEl.value) {
           outputLanguageEl.value = "__source__";
@@ -870,7 +903,9 @@
         setStatus("Filters updated. Click Refresh Feed to apply.");
       });
       outputLanguageEl.addEventListener("change", () => {
-        setStatus("Filters updated. Click Refresh Feed to apply.");
+        if (enableTranslateEl.checked) {
+          setStatus("Filters updated. Click Refresh Feed to apply.");
+        }
       });
       modelEl.addEventListener("change", () => {
         setStatus("Filters updated. Click Refresh Feed to apply.");
@@ -897,6 +932,7 @@
         updateColumnToggleLabel();
         updatePanelToggleLabel();
         syncLogoCenterState();
+        applyTranslatePanelState();
         refreshSourceFilters();
         loadNews();
       });
