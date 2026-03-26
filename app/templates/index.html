@@ -178,6 +178,7 @@
       let panelHidden = false;
       let manualColumnCount = 2;
       let activeTheme = "dark";
+      let isLoadingNews = false;
 
       function setTheme(themeName) {
         activeTheme = themeName === "light" ? "light" : "dark";
@@ -450,6 +451,17 @@
         return manualColumnCount;
       }
 
+      function getLoadingScheme(columnCount) {
+        if (columnCount <= 1) return "list";
+        if (columnCount === 2) return "dual";
+        return "triple";
+      }
+
+      function clearLoadingFeedState() {
+        feedEl.classList.remove("is-loading");
+        delete feedEl.dataset.loadingScheme;
+      }
+
       function createFeedColumns(columnCount) {
         feedEl.innerHTML = "";
         feedEl.style.setProperty("--feed-cols", String(columnCount));
@@ -464,12 +476,74 @@
         return columns;
       }
 
+      function createSkeletonCard(index, scheme, showImages) {
+        const card = document.createElement("article");
+        card.className = "news-card skeleton-card no-entry-animation";
+        card.style.setProperty("--i", String(index));
+        card.dataset.scheme = scheme;
+        card.dataset.showImages = showImages ? "1" : "0";
+        card.dataset.hasImage = showImages ? "1" : "0";
+
+        const meta = document.createElement("div");
+        meta.className = "meta skeleton-meta";
+        const sourceChip = document.createElement("span");
+        sourceChip.className = "skeleton-block skeleton-pill";
+        const timeChip = document.createElement("span");
+        timeChip.className = "skeleton-block skeleton-pill";
+        meta.append(sourceChip, timeChip);
+
+        const image = document.createElement("div");
+        image.className = "skeleton-image skeleton-block";
+
+        const titleGroup = document.createElement("div");
+        titleGroup.className = "skeleton-title-group";
+        ["skeleton-line-lg", "skeleton-line-md"].forEach((sizeClass) => {
+          const line = document.createElement("span");
+          line.className = `skeleton-block skeleton-line ${sizeClass}`;
+          titleGroup.appendChild(line);
+        });
+
+        const summary = document.createElement("div");
+        summary.className = "skeleton-summary";
+        ["", "", "skeleton-line-short"].forEach((sizeClass) => {
+          const line = document.createElement("span");
+          line.className = `skeleton-block skeleton-line ${sizeClass}`.trim();
+          summary.appendChild(line);
+        });
+
+        const cta = document.createElement("div");
+        cta.className = "skeleton-block skeleton-cta";
+
+        card.append(meta, image, titleGroup, summary, cta);
+        return card;
+      }
+
+      function renderLoadingSkeleton() {
+        const showImages = !!showImagesEl?.checked;
+        const columnCount = getFeedColumnCount();
+        const scheme = getLoadingScheme(columnCount);
+        const singleColumnDesktop =
+          columnCount === 1 && !window.matchMedia("(max-width: 980px)").matches;
+        const skeletonCount = scheme === "list" ? 6 : scheme === "dual" ? 8 : 12;
+
+        feedEl.classList.toggle("single-column-layout", singleColumnDesktop);
+        const columns = createFeedColumns(columnCount);
+        feedEl.classList.add("is-loading");
+        feedEl.dataset.loadingScheme = scheme;
+
+        for (let index = 0; index < skeletonCount; index += 1) {
+          const card = createSkeletonCard(index, scheme, showImages);
+          columns[index % columnCount].appendChild(card);
+        }
+      }
+
       function renderFeed(items, options = {}) {
         const { previousPositions = null, disableEntryAnimation = false } = options;
         const showImages = !!showImagesEl?.checked;
         const columnCount = getFeedColumnCount();
         const singleColumnDesktop =
           columnCount === 1 && !window.matchMedia("(max-width: 980px)").matches;
+        clearLoadingFeedState();
         feedEl.classList.toggle("single-column-layout", singleColumnDesktop);
         const columns = createFeedColumns(columnCount);
 
@@ -515,6 +589,13 @@
         updatePanelToggleLabel();
         syncLogoCenterState({ deferIfCollapsing: true });
 
+        if (isLoadingNews) {
+          requestAnimationFrame(() => {
+            renderLoadingSkeleton();
+          });
+          return;
+        }
+
         if (latestItems.length) {
           requestAnimationFrame(() => {
             renderFeed(latestItems, {
@@ -541,7 +622,9 @@
           limit: limitEl.value,
         });
         setStatus("Loading news...");
-        feedEl.innerHTML = "";
+        latestItems = [];
+        isLoadingNews = true;
+        renderLoadingSkeleton();
 
         try {
           const response = await fetch(`/api/news?${params.toString()}`);
@@ -566,8 +649,13 @@
             ].join("\n")
           );
           latestItems = data.items || [];
+          isLoadingNews = false;
           renderFeed(latestItems);
         } catch (error) {
+          isLoadingNews = false;
+          clearLoadingFeedState();
+          feedEl.innerHTML = "";
+          latestItems = [];
           setStatus(error.message, true);
         }
       }
@@ -583,6 +671,10 @@
         const previousPositions = captureCardPositions();
         manualColumnCount = manualColumnCount === 3 ? 1 : manualColumnCount + 1;
         updateColumnToggleLabel();
+        if (isLoadingNews) {
+          renderLoadingSkeleton();
+          return;
+        }
         if (latestItems.length) {
           renderFeed(latestItems, {
             previousPositions,
@@ -591,6 +683,10 @@
         }
       });
       displayModeEl.addEventListener("change", () => {
+        if (isLoadingNews) {
+          renderLoadingSkeleton();
+          return;
+        }
         applyDisplayModeInPlace();
       });
       languageEl.addEventListener("change", () => {
@@ -629,6 +725,10 @@
       });
       window.addEventListener("resize", () => {
         syncLogoCenterState();
+        if (isLoadingNews) {
+          renderLoadingSkeleton();
+          return;
+        }
         const columnCount = getFeedColumnCount();
         if (latestItems.length && columnCount !== lastRenderedColumnCount) {
           renderFeed(latestItems);
