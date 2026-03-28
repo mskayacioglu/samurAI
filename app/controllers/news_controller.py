@@ -56,10 +56,14 @@ class NewsController:
         if not self.catalog_service.is_valid_language(output_language):
             return jsonify({"error": "Invalid output language key", "languages": self.catalog_service.available_language_keys()}), 400
 
-        if not self.catalog_service.is_valid_model(model_key):
-            return jsonify({"error": "Invalid model key", "models": self.catalog_service.available_model_keys()}), 400
+        available_models = self.catalog_service.available_model_keys()
+        if language != "en":
+            available_models = [m for m in available_models if m in {"mbart50_xlsum", "mt5-xlsum"}]
 
-        if language != "en" and model_key != "mbart50_xlsum":
+        if not self.catalog_service.is_valid_model(model_key):
+            return jsonify({"error": "Invalid model key", "models": available_models}), 400
+
+        if language != "en" and model_key not in {"mbart50_xlsum", "mt5-xlsum"}:
             model_key = "mbart50_xlsum"
 
         selected_sources = []
@@ -160,7 +164,7 @@ class NewsController:
                 "topic": self.news_service.normalize_filter(topic),
                 "country": self.news_service.normalize_filter(country).upper(),
                 "region": self.news_service.normalize_filter(region),
-                "available_models": self.catalog_service.available_model_keys(),
+                "available_models": available_models,
                 "available_sources": self.catalog_service.sources,
                 "available_languages": self.catalog_service.languages,
                 "available_topics": self.catalog_service.topics,

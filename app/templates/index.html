@@ -202,6 +202,9 @@
       const allTopics = {{ topics | tojson }};
       const allRegions = {{ regions | tojson }};
       const allCountries = {{ countries | tojson }};
+      const allModels = {{ models | tojson }};
+      const defaultModelKey = {{ default_model | tojson }};
+      const multilingualModelKeys = ["mbart50_xlsum", "mt5-xlsum"];
       let latestItems = [];
       let lastRenderedColumnCount = null;
       let panelHidden = false;
@@ -414,6 +417,38 @@
         renderRegionOptions();
         renderCountryOptions();
         renderSourceOptions();
+      }
+
+      function getAllowedModelKeys(languageKey) {
+        const allModelKeys = Object.keys(allModels);
+        if (languageKey === "en") {
+          return allModelKeys;
+        }
+        return multilingualModelKeys.filter((key) => allModelKeys.includes(key));
+      }
+
+      function renderModelOptions() {
+        const allowedModelKeys = getAllowedModelKeys(languageEl.value);
+        const selectedBefore = modelEl.value;
+        modelEl.innerHTML = "";
+
+        allowedModelKeys.forEach((key) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = key;
+          modelEl.appendChild(option);
+        });
+
+        const fallbackKey = allowedModelKeys.includes(selectedBefore)
+          ? selectedBefore
+          : allowedModelKeys.includes(defaultModelKey)
+          ? defaultModelKey
+          : allowedModelKeys[0] || "";
+
+        modelEl.disabled = allowedModelKeys.length === 0;
+        if (fallbackKey) {
+          modelEl.value = fallbackKey;
+        }
       }
 
       function getSelectedSources() {
@@ -943,6 +978,7 @@
         if (outputLanguageEl.value !== "__source__" && outputLanguageEl.value === languageEl.value) {
           outputLanguageEl.value = "__source__";
         }
+        renderModelOptions();
         refreshSourceFilters();
         setStatus("Filters updated. Click Refresh Feed to apply.");
       });
@@ -992,6 +1028,7 @@
         updatePanelToggleLabel();
         syncLogoCenterState();
         applyTranslatePanelState();
+        renderModelOptions();
         refreshSourceFilters();
         loadNews();
       });

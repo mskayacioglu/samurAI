@@ -51,6 +51,7 @@ MODEL_PATHS = {
         PROJECT_ROOT, "models", "bart_base-reuters", "bart-reuters-best"
     ),
     "mbart50_xlsum": os.path.join(PROJECT_ROOT, "models", "mbart50-xlsum"),
+    "mt5-xlsum": os.path.join(PROJECT_ROOT, "models", "mT5_multilingual_XLSum"),
 }
 
 DEFAULT_MODEL_KEY = os.getenv("MODEL_KEY", "mbart50_xlsum")
@@ -3236,6 +3237,17 @@ def summarize_text(text: str, model_key: str, language_key: str):
                 )
             if forced_bos_token_id is not None:
                 generate_kwargs["forced_bos_token_id"] = forced_bos_token_id
+        elif model_key == "mt5-xlsum":
+            generate_kwargs.update(
+                {
+                    "max_length": 84,
+                    "min_length": 20,
+                    "num_beams": 4,
+                    "no_repeat_ngram_size": 2,
+                    "length_penalty": 1.0,
+                    "repetition_penalty": 1.0,
+                }
+            )
 
         with torch.no_grad() if torch is not None else nullcontext():
             output_ids = model.generate(
