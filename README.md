@@ -51,6 +51,8 @@ Not:
 - Bir kaynakta doğrudan RSS başarısız olursa sistem otomatik Google News site-scope RSS fallback uygular; böylece seçeneklerdeki kaynakların RSS erişimi korunur.
 - Varsayılan olarak kalite kapısı açıktır (`ENABLE_SOURCE_QUALITY_GATE=1`): düşük kalite verdiği bilinen kaynaklar seçeneklerde gizlenir.
 - Dinamik kalite kapısı opsiyoneldir (`ENABLE_DYNAMIC_QUALITY_GATE=1`): en son `source_validation_reports/*.json` raporundaki başarısız kaynaklar da otomatik gizlenir.
+- Varsayılan olarak kategori başına ek havuz genişletme aktiftir (`ENABLE_CURATED_TOPIC_SOURCES=1`): her dilin her kategorisine popüler RSS kaynaklarından ek girişler üretilir.
+- Kategori başına üretilecek ek kaynak adedi `CATEGORY_SOURCES_PER_TOPIC` ile ayarlanır (varsayılan `3`).
 - Google News topic-source üretimi varsayılan kapalıdır (`ENABLE_GOOGLE_TOPIC_SOURCES=0`), istenirse açılabilir.
 - Akış her haberde kaynak URL'sine gider, mümkünse tam haber metnini çeker ve bunun üzerinden özet üretir.
 - Özetleme girdisinde model sadece haber gövdesini alır (başlık modele verilmez); başlık arayüzde ayrı gösterilir.

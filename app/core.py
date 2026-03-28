@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import logging
 import hashlib
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -41,6 +42,7 @@ except ImportError:
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+LOGGER = logging.getLogger(__name__)
 
 MODEL_PATHS = {
     "bart_large_cnn": os.path.join(PROJECT_ROOT, "models", "bart_large-cnn"),
@@ -797,49 +799,12 @@ ENABLE_GOOGLE_TOPIC_SOURCES = str(os.getenv("ENABLE_GOOGLE_TOPIC_SOURCES", "0") 
     "true",
     "yes",
 }
-
-DIRECT_TOPIC_ALIAS_SOURCES = {
-    "vi": [
-        {"key": "vi_dantri_world_alias", "name": "Dan Tri World", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "world", "country": "VN"},
-        {"key": "vi_tuoitre_politics_alias", "name": "Tuoi Tre Politics", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss", "topic": "politics", "country": "VN"},
-        {"key": "vi_dantri_business_alias", "name": "Dan Tri Business", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "business", "country": "VN"},
-        {"key": "vi_thanhnien_technology_alias", "name": "Thanh Nien Technology", "rss_url": "https://thanhnien.vn/rss/home.rss", "topic": "technology", "country": "VN"},
-        {"key": "vi_dantri_science_alias", "name": "Dan Tri Science", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "science", "country": "VN"},
-        {"key": "vi_dantri_health_alias", "name": "Dan Tri Health", "rss_url": "https://dantri.com.vn/rss/home.rss", "topic": "health", "country": "VN"},
-        {"key": "vi_tuoitre_sports_alias", "name": "Tuoi Tre Sports", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss", "topic": "sports", "country": "VN"},
-        {"key": "vi_tuoitre_entertainment_alias", "name": "Tuoi Tre Entertainment", "rss_url": "https://tuoitre.vn/rss/tin-moi-nhat.rss", "topic": "entertainment", "country": "VN"},
-        {"key": "vi_thanhnien_culture_alias", "name": "Thanh Nien Culture", "rss_url": "https://thanhnien.vn/rss/home.rss", "topic": "culture", "country": "VN"},
-    ],
-    "zh": [
-        {"key": "zh_chinanews_business_alias", "name": "China News Business", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "business", "country": "CN"},
-        {"key": "zh_chinanews_culture_alias", "name": "China News Culture", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "culture", "country": "CN"},
-        {"key": "zh_chinanews_entertainment_alias", "name": "China News Entertainment", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "entertainment", "country": "CN"},
-        {"key": "zh_chinanews_health_alias", "name": "China News Health", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "health", "country": "CN"},
-        {"key": "zh_chinanews_politics_alias", "name": "China News Politics", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "politics", "country": "CN"},
-        {"key": "zh_chinanews_science_alias", "name": "China News Science", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "science", "country": "CN"},
-        {"key": "zh_chinanews_sports_alias", "name": "China News Sports", "rss_url": "https://www.chinanews.com.cn/rss/scroll-news.xml", "topic": "sports", "country": "CN"},
-        {"key": "zh_globaltimes_technology_alias", "name": "Global Times Technology", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml", "topic": "technology", "country": "CN"},
-        {"key": "zh_globaltimes_world_alias", "name": "Global Times World", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml", "topic": "world", "country": "CN"},
-    ],
+ENABLE_CURATED_TOPIC_SOURCES = str(os.getenv("ENABLE_CURATED_TOPIC_SOURCES", "1") or "").strip().lower() not in {
+    "0",
+    "false",
+    "no",
 }
-
-DIRECT_TOPIC_SEED_SOURCES = {
-    "ar": {"name": "BBC Arabic", "rss_url": "https://feeds.bbci.co.uk/arabic/rss.xml", "country": "QA"},
-    "de": {"name": "Tagesschau", "rss_url": "https://www.tagesschau.de/xml/rss2", "country": "DE"},
-    "en": {"name": "BBC World", "rss_url": "https://feeds.bbci.co.uk/news/world/rss.xml", "country": "GB"},
-    "es": {"name": "El Pais", "rss_url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "country": "ES"},
-    "fr": {"name": "Le Figaro", "rss_url": "https://www.lefigaro.fr/rss/figaro_actualites.xml", "country": "FR"},
-    "hi": {"name": "BBC Hindi", "rss_url": "https://feeds.bbci.co.uk/hindi/rss.xml", "country": "IN"},
-    "it": {"name": "ANSA", "rss_url": "https://www.ansa.it/sito/ansait_rss.xml", "country": "IT"},
-    "ja": {"name": "NHK", "rss_url": "https://www3.nhk.or.jp/rss/news/cat0.xml", "country": "JP"},
-    "ko": {"name": "Hankyoreh", "rss_url": "https://www.hani.co.kr/rss/", "country": "KR"},
-    "nl": {"name": "NOS", "rss_url": "https://feeds.nos.nl/nosnieuwsalgemeen", "country": "NL"},
-    "ro": {"name": "HotNews", "rss_url": "https://hotnews.ro/rss", "country": "RO"},
-    "ru": {"name": "Interfax", "rss_url": "https://www.interfax.ru/rss.asp", "country": "RU"},
-    "tr": {"name": "TRT Haber", "rss_url": "https://www.trthaber.com/sondakika.rss", "country": "TR"},
-    "vi": {"name": "Dan Tri", "rss_url": "https://dantri.com.vn/rss/home.rss", "country": "VN"},
-    "zh": {"name": "Global Times", "rss_url": "https://www.globaltimes.cn/rss/outbrain.xml", "country": "CN"},
-}
+CATEGORY_SOURCES_PER_TOPIC = max(1, int(os.getenv("CATEGORY_SOURCES_PER_TOPIC", "3")))
 
 
 def slugify_key(text: str) -> str:
@@ -931,26 +896,115 @@ def build_google_topic_source_overrides():
 GOOGLE_TOPIC_SOURCE_OVERRIDES = build_google_topic_source_overrides()
 
 
-def build_direct_topic_seed_aliases():
-    aliases = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
-    for language_key, seed in DIRECT_TOPIC_SEED_SOURCES.items():
-        country = seed.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language_key, "US")
+def build_curated_topic_sources():
+    def norm(value: str) -> str:
+        return re.sub(r"\s+", " ", str(value or "")).strip()
+
+    def infer_candidate_topic(source: dict) -> str:
+        explicit = norm(source.get("topic", "")).lower()
+        if explicit in TOPIC_CONFIGS:
+            return explicit
+        source_text = " ".join(
+            [
+                norm(source.get("key", "")).lower(),
+                norm(source.get("name", "")).lower(),
+                norm(source.get("rss_url", "")).lower(),
+            ]
+        )
+        if re.search(r"\b(sport|spor|football|soccer|basket|tennis)\b", source_text):
+            return "sports"
+        if "world" in source_text:
+            return "world"
+        if re.search(r"\b(politic|siyaset|politique|politik|politica|полит|政治)\b", source_text):
+            return "politics"
+        if re.search(r"\b(business|econom|finance|ekonomi|wirtschaft|economia|finanza|эконом|财经)\b", source_text):
+            return "business"
+        if re.search(r"\b(tech|technology|teknoloji|technologie|tecnologia|технолог|科技)\b", source_text):
+            return "technology"
+        if re.search(r"\b(science|bilim|wissenschaft|ciencia|scienza|наука|科学)\b", source_text):
+            return "science"
+        if re.search(r"\b(health|sağlık|saglik|sante|gesundheit|salud|salute|здоров|健康)\b", source_text):
+            return "health"
+        if re.search(r"\b(entertainment|magazin|show|celeb|娱乐|연예|मनोरंजन)\b", source_text):
+            return "entertainment"
+        if re.search(r"\b(culture|kultur|kültür|cultura|文化|культура)\b", source_text):
+            return "culture"
+        return "general"
+
+    def topic_affinity(source_topic: str, target_topic: str) -> int:
+        if source_topic == target_topic:
+            return 3
+        if source_topic == "general":
+            return 2
+        if target_topic == "general":
+            return 1
+        return 0
+
+    extensions = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
+    for language_key in LANGUAGE_CONFIGS.keys():
+        candidates = []
+        seen_keys = set()
+        for source in list(TOP_NEWS_SOURCES.get(language_key, [])) + list(
+            TOPICAL_SOURCE_EXTENSIONS.get(language_key, [])
+        ):
+            source_key = norm(source.get("key", ""))
+            if not source_key or source_key in seen_keys:
+                continue
+            seen_keys.add(source_key)
+            candidates.append(source)
+
+        if not candidates:
+            continue
+
+        source_topics = {norm(source.get("key", "")): infer_candidate_topic(source) for source in candidates}
+        topic_index = {topic: idx for idx, topic in enumerate(CATEGORY_TOPIC_KEYS)}
+
         for topic_key in CATEGORY_TOPIC_KEYS:
-            alias_key = f"{language_key}_{slugify_key(seed['name'])}_{topic_key}_dalias"
-            aliases[language_key].append(
-                {
-                    "key": alias_key,
-                    "name": f"{seed['name']} {TOPIC_CONFIGS.get(topic_key, {}).get('name', topic_key.title())}",
-                    "rss_url": seed["rss_url"],
-                    "topic": topic_key,
-                    "country": country,
-                    "feed_source": "direct_alias",
-                }
-            )
-    return aliases
+            ranked = []
+            for source in candidates:
+                source_key = norm(source.get("key", ""))
+                source_topic = source_topics.get(source_key, "general")
+                affinity = topic_affinity(source_topic, topic_key)
+                rotation_rank = (abs(hash(f"{language_key}:{topic_key}:{source_key}")) + topic_index[topic_key]) % 997
+                ranked.append((affinity, rotation_rank, source))
+
+            ranked.sort(key=lambda row: (row[0], -row[1]), reverse=True)
+            chosen = []
+            used_rss = set()
+            used_keys = set()
+            for _, _, source in ranked:
+                source_key = norm(source.get("key", ""))
+                rss_url = norm(source.get("rss_url", ""))
+                if not source_key or not rss_url:
+                    continue
+                if source_key in used_keys or rss_url in used_rss:
+                    continue
+                used_keys.add(source_key)
+                used_rss.add(rss_url)
+                chosen.append(source)
+                if len(chosen) >= CATEGORY_SOURCES_PER_TOPIC:
+                    break
+
+            for idx, source in enumerate(chosen, start=1):
+                country = source.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language_key, "US")
+                base_key = norm(source.get("key", ""))
+                source_key = f"{base_key}_{topic_key}_cur{idx}"
+                extensions[language_key].append(
+                    {
+                        "key": source_key,
+                        "name": source["name"],
+                        "rss_url": source["rss_url"],
+                        "topic": topic_key,
+                        "country": country,
+                        "feed_source": "curated_direct",
+                    }
+                )
+                if source.get("rss_urls"):
+                    extensions[language_key][-1]["rss_urls"] = list(source["rss_urls"])
+    return extensions
 
 
-DIRECT_TOPIC_SEED_ALIASES = build_direct_topic_seed_aliases()
+CURATED_TOPIC_SOURCES = build_curated_topic_sources()
 
 ENABLE_SOURCE_QUALITY_GATE = str(os.getenv("ENABLE_SOURCE_QUALITY_GATE", "1") or "").strip().lower() not in {
     "0",
@@ -1214,6 +1268,22 @@ def infer_region(country_key: str, source_cfg: dict) -> str:
     return COUNTRY_CONFIGS.get(country_key, {}).get("region", "global")
 
 
+def source_site_key(source_cfg: dict) -> str:
+    site_domain = re.sub(r"\s+", " ", str(source_cfg.get("site_domain", "") or "")).strip().lower()
+    if site_domain:
+        return re.sub(r"^www\d*\.", "", site_domain)
+
+    rss_candidates = list(source_cfg.get("rss_urls") or [])
+    if source_cfg.get("rss_url"):
+        rss_candidates.insert(0, source_cfg.get("rss_url"))
+    for rss_url in rss_candidates:
+        host = re.sub(r"\s+", " ", str(urlparse(str(rss_url or "")).netloc or "")).strip().lower()
+        host = re.sub(r"^www\d*\.", "", host)
+        if host:
+            return host
+    return ""
+
+
 def build_news_sources():
     built = {}
     for lang_key, source_list in TOP_NEWS_SOURCES.items():
@@ -1222,20 +1292,37 @@ def build_news_sources():
             + TOPICAL_SOURCE_EXTENSIONS.get(lang_key, [])
             + (GOOGLE_TOPIC_SOURCE_EXTENSIONS.get(lang_key, []) if ENABLE_GOOGLE_TOPIC_SOURCES else [])
             + (GOOGLE_TOPIC_SOURCE_OVERRIDES.get(lang_key, []) if ENABLE_GOOGLE_TOPIC_SOURCES else [])
-            + DIRECT_TOPIC_SEED_ALIASES.get(lang_key, [])
-            + DIRECT_TOPIC_ALIAS_SOURCES.get(lang_key, [])
+            + (CURATED_TOPIC_SOURCES.get(lang_key, []) if ENABLE_CURATED_TOPIC_SOURCES else [])
         )
+        grouped_by_site = {}
         for source in merged_sources:
-            source_key = source["key"]
-            if source_key in built:
-                continue
+            source_key = source.get("key", "")
             if ENABLE_SOURCE_QUALITY_GATE and (
                 source_key in QUALITY_GATED_SOURCE_KEYS or source_key in DYNAMIC_QUALITY_GATED_KEYS
             ):
                 continue
+            site_key = source_site_key(source) or f"{lang_key}:{source_key}"
+            grouped_by_site.setdefault(site_key, []).append(source)
+
+        for _, group in grouped_by_site.items():
+            group = sorted(
+                group,
+                key=lambda src: (
+                    0 if not src.get("feed_source") else 1,
+                    0 if src.get("topic") == "general" else 1,
+                    len(str(src.get("key", ""))),
+                ),
+            )
+            source = group[0]
+            source_key = source["key"]
+            if source_key in built:
+                continue
+
             country = infer_country(lang_key, source_key, source)
-            topic = infer_topic(source_key, source)
+            group_topics = {infer_topic(src.get("key", ""), src) for src in group}
+            topic = "general" if len(group_topics) > 1 else infer_topic(source_key, source)
             region = infer_region(country, source)
+
             built[source_key] = {
                 "name": source["name"],
                 "rss_url": source["rss_url"],
@@ -1246,8 +1333,9 @@ def build_news_sources():
             }
             if source.get("rss_urls"):
                 built[source_key]["rss_urls"] = list(source["rss_urls"])
-            if source.get("site_domain"):
-                built[source_key]["site_domain"] = source["site_domain"]
+            site_domain = source_site_key(source)
+            if site_domain:
+                built[source_key]["site_domain"] = site_domain
             if source.get("feed_source"):
                 built[source_key]["feed_source"] = source["feed_source"]
     return built
@@ -2938,7 +3026,7 @@ def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
             if entries:
                 break
         except (URLError, ET.ParseError, TimeoutError, ConnectionResetError, OSError) as exc:
-            app.logger.warning(
+            LOGGER.warning(
                 "rss_fetch_error source=%s url=%s error=%s",
                 source_key,
                 rss_url,
@@ -2946,7 +3034,7 @@ def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
             )
             continue
         except Exception as exc:
-            app.logger.warning(
+            LOGGER.warning(
                 "rss_fetch_error source=%s url=%s error=%s",
                 source_key,
                 rss_url,
@@ -2976,7 +3064,7 @@ def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
 
                 entries = parse_rss(xml_content)
                 if entries:
-                    app.logger.info(
+                    LOGGER.info(
                         "rss_fallback_used source=%s fallback=%s entries=%s",
                         source_key,
                         fallback_url,
@@ -3309,5 +3397,3 @@ def gather_news(
         reverse=True,
     )
     return all_entries
-
-

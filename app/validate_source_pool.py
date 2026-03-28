@@ -31,12 +31,26 @@ def parse_args():
 
 
 def load_runtime():
+    runtime = None
+    import_error = None
+
     try:
-        import app as runtime
+        import core as runtime_module
+        runtime = runtime_module
     except Exception as exc:  # pragma: no cover - environment dependent
+        import_error = exc
+
+    if runtime is None:
+        try:
+            import app as runtime_module
+            runtime = runtime_module
+        except Exception as exc:  # pragma: no cover - environment dependent
+            import_error = exc
+
+    if runtime is None:
         raise RuntimeError(
-            "Unable to import runtime from app.py. Install runtime deps first (at least Flask)."
-        ) from exc
+            "Unable to import runtime from core.py/app.py. Install runtime deps first (at least Flask)."
+        ) from import_error
 
     required = [
         "NEWS_SOURCES",
