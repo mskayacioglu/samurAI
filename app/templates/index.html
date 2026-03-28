@@ -465,30 +465,45 @@
         return positions;
       }
 
-      function animateCardsFromPreviousPositions(previousPositions) {
+      function animateCardsFromPreviousPositions(previousPositions, options = {}) {
+        const { transitionPreset = "default" } = options;
+        const isLayoutTransition = transitionPreset === "layout";
         if (!previousPositions || previousPositions.size === 0) {
           return;
         }
-        feedEl.querySelectorAll(".news-card").forEach((card) => {
+        feedEl.querySelectorAll(".news-card").forEach((card, index) => {
           const key = card.dataset.itemKey;
           if (!key || !previousPositions.has(key) || typeof card.animate !== "function") {
             return;
           }
           const from = previousPositions.get(key);
           const to = card.getBoundingClientRect();
-          const deltaX = Math.round(from.left - to.left);
-          const deltaY = Math.round(from.top - to.top);
-          if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+          const deltaX = from.left - to.left;
+          const deltaY = from.top - to.top;
+          const scaleX = to.width > 0 ? from.width / to.width : 1;
+          const scaleY = to.height > 0 ? from.height / to.height : 1;
+          const hasTranslation = Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5;
+          const hasScale = Math.abs(1 - scaleX) >= 0.01 || Math.abs(1 - scaleY) >= 0.01;
+          if (!hasTranslation && !hasScale) {
             return;
           }
+          const delay = isLayoutTransition ? Math.min(index * 24, 220) : 0;
           card.animate(
             [
-              { transform: `translate(${deltaX}px, ${deltaY}px)` },
-              { transform: "translate(0, 0)" },
+              {
+                transformOrigin: "top left",
+                transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
+                opacity: isLayoutTransition ? 0.88 : 1,
+              },
+              { transformOrigin: "top left", transform: "translate(0, 0) scale(1, 1)", opacity: 1 },
             ],
             {
-              duration: 1050,
-              easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+              duration: isLayoutTransition ? 1220 : 900,
+              delay,
+              easing: isLayoutTransition
+                ? "cubic-bezier(0.25, 0.9, 0.3, 1)"
+                : "cubic-bezier(0.22, 1, 0.36, 1)",
+              fill: "both",
             }
           );
         });
@@ -721,7 +736,11 @@
       }
 
       function renderFeed(items, options = {}) {
-        const { previousPositions = null, disableEntryAnimation = false } = options;
+        const {
+          previousPositions = null,
+          disableEntryAnimation = false,
+          transitionPreset = "default",
+        } = options;
         const showImages = !!showImagesEl?.checked;
         const columnCount = getFeedColumnCount();
         const singleColumnDesktop =
@@ -759,7 +778,7 @@
           columns[index % columnCount].appendChild(node);
         });
 
-        animateCardsFromPreviousPositions(previousPositions);
+        animateCardsFromPreviousPositions(previousPositions, { transitionPreset });
       }
 
       function setPanelHidden(nextHidden) {
@@ -784,6 +803,7 @@
             renderFeed(latestItems, {
               previousPositions,
               disableEntryAnimation: true,
+              transitionPreset: "layout",
             });
           });
         }
@@ -866,6 +886,7 @@
           renderFeed(latestItems, {
             previousPositions,
             disableEntryAnimation: true,
+            transitionPreset: "layout",
           });
         }
       });
