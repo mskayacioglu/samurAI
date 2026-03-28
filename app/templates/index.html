@@ -248,13 +248,22 @@
         feedEl.dataset.showImages = showImages ? "1" : "0";
         feedEl.querySelectorAll(".news-card").forEach((card) => {
           card.dataset.showImages = showImages ? "1" : "0";
-        });
-        feedEl.querySelectorAll(".news-image").forEach((img) => {
-          if (!showImages) {
-            img.classList.add("hidden");
-          } else if (img.src) {
-            img.classList.remove("hidden");
+          const imageEl = card.querySelector(".news-image");
+          if (!imageEl) {
+            card.dataset.hasImage = "0";
+            return;
           }
+          const imageUrl = imageEl.dataset.imageUrl || "";
+          const hasImage = !!imageUrl;
+          card.dataset.hasImage = showImages && hasImage ? "1" : "0";
+          if (!showImages || !hasImage) {
+            imageEl.classList.add("hidden");
+            return;
+          }
+          if (!imageEl.src) {
+            imageEl.src = imageUrl;
+          }
+          imageEl.classList.remove("hidden");
         });
       }
 
@@ -791,8 +800,10 @@
           node.querySelector(".title").textContent = item.title;
           node.querySelector(".summary").textContent = item.summary;
           const imageEl = node.querySelector(".news-image");
-          if (showImages && item.image_url) {
-            imageEl.src = item.image_url;
+          const imageUrl = item.image_url || "";
+          imageEl.dataset.imageUrl = imageUrl;
+          if (showImages && imageUrl) {
+            imageEl.src = imageUrl;
             card.dataset.hasImage = "1";
           } else {
             imageEl.classList.add("hidden");
