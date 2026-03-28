@@ -51,7 +51,7 @@ MODEL_PATHS = {
         PROJECT_ROOT, "models", "bart_base-reuters", "bart-reuters-best"
     ),
     "mbart50_xlsum": os.path.join(PROJECT_ROOT, "models", "mbart50-xlsum"),
-    "mt5-xlsum": os.path.join(PROJECT_ROOT, "models", "mT5_multilingual_XLSum"),
+    "mt5-xlsum": os.path.join(PROJECT_ROOT, "models", "mt5-xlsum"),
 }
 
 DEFAULT_MODEL_KEY = os.getenv("MODEL_KEY", "mbart50_xlsum")
