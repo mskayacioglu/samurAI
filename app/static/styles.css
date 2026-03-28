@@ -337,7 +337,9 @@ body.light-theme .column-toggle-btn {
   position: relative;
   left: 6px;
   width: max-content;
-  transition: left 2400ms cubic-bezier(0.22, 1, 0.36, 1), transform 2400ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    left 980ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 980ms cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: left, transform;
 }
 
@@ -376,9 +378,9 @@ body.three-col-mode .page-title {
   --rail-full-width: 280px;
   --rail-peek-width: 37px;
   --rail-width: var(--rail-full-width);
-  --layout-shift-duration: 1220ms;
-  --rail-body-fade-duration: 1000ms;
-  --layout-shift-easing: cubic-bezier(0.25, 0.9, 0.3, 1);
+  --layout-shift-duration: 860ms;
+  --rail-body-fade-duration: 520ms;
+  --layout-shift-easing: cubic-bezier(0.22, 0.61, 0.36, 1);
   width: 100%;
   margin: 0;
   display: grid;
@@ -525,8 +527,8 @@ body.light-theme .status {
   border-radius: 15px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.23);
   padding: 15px 16px;
-  animation: card-in 900ms ease both;
-  animation-delay: calc(var(--i, 0) * 55ms);
+  animation: card-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 34ms);
   transition: border-color 170ms ease, box-shadow 170ms ease;
   backface-visibility: hidden;
   transform: translateZ(0);
