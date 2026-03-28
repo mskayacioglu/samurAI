@@ -376,6 +376,9 @@ body.three-col-mode .page-title {
   --rail-full-width: 280px;
   --rail-peek-width: 37px;
   --rail-width: var(--rail-full-width);
+  --layout-shift-duration: 1220ms;
+  --rail-body-fade-duration: 1000ms;
+  --layout-shift-easing: cubic-bezier(0.25, 0.9, 0.3, 1);
   width: 100%;
   margin: 0;
   display: grid;
@@ -947,7 +950,7 @@ body.light-theme .source-link {
   flex-direction: column;
   overflow: hidden;
   transform: translateX(0);
-  transition: transform 1300ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--layout-shift-duration) var(--layout-shift-easing);
   will-change: transform;
   backface-visibility: hidden;
   backdrop-filter: none;
@@ -966,6 +969,11 @@ body.light-theme .panel-toggle-btn {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--rail-body-fade-duration) var(--layout-shift-easing),
+    visibility 0s linear 0s;
 }
 
 .app.panel-collapsed .filter-rail {
@@ -980,6 +988,9 @@ body.light-theme .panel-toggle-btn {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transition:
+    opacity var(--rail-body-fade-duration) var(--layout-shift-easing),
+    visibility 0s linear var(--rail-body-fade-duration);
 }
 
 .rail-head {
