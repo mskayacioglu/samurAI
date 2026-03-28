@@ -371,6 +371,69 @@ TOPICAL_SOURCE_EXTENSIONS = {
     ],
 }
 
+UNIQUE_SOURCE_EXTENSIONS = {
+    "ar": [
+        {"key": "ar_masrawy", "name": "Masrawy", "rss_url": "https://www.masrawy.com/rss", "topic": "general", "country": "EG", "site_domain": "masrawy.com"},
+        {"key": "ar_youm7", "name": "Youm7", "rss_url": "https://www.youm7.com/rss/SectionRss?SectionID=65", "topic": "politics", "country": "EG", "site_domain": "youm7.com"},
+    ],
+    "de": [
+        {"key": "de_heise", "name": "Heise", "rss_url": "https://www.heise.de/rss/heise-atom.xml", "topic": "technology", "country": "DE", "site_domain": "heise.de"},
+        {"key": "de_focus", "name": "Focus", "rss_url": "https://rss.focus.de/fol/XML/rss_folnews.xml", "topic": "general", "country": "DE", "site_domain": "focus.de"},
+    ],
+    "en": [
+        {"key": "en_cbs", "name": "CBS News", "rss_url": "https://www.cbsnews.com/latest/rss/main", "topic": "general", "country": "US", "site_domain": "cbsnews.com"},
+        {"key": "en_abcnews", "name": "ABC News", "rss_url": "https://abcnews.go.com/abcnews/topstories", "topic": "world", "country": "US", "site_domain": "abcnews.go.com"},
+    ],
+    "es": [
+        {"key": "es_elperiodico", "name": "El Periodico", "rss_url": "https://www.elperiodico.com/es/rss/rss_portada.xml", "topic": "general", "country": "ES", "site_domain": "elperiodico.com"},
+        {"key": "es_ondacero", "name": "Onda Cero", "rss_url": "https://www.ondacero.es/rss/noticias.xml", "topic": "politics", "country": "ES", "site_domain": "ondacero.es"},
+    ],
+    "fr": [
+        {"key": "fr_bfmtv", "name": "BFMTV", "rss_url": "https://www.bfmtv.com/rss/news-24-7/", "topic": "general", "country": "FR", "site_domain": "bfmtv.com"},
+        {"key": "fr_francetvinfo", "name": "Franceinfo", "rss_url": "https://www.francetvinfo.fr/titres.rss", "topic": "world", "country": "FR", "site_domain": "francetvinfo.fr"},
+    ],
+    "hi": [
+        {"key": "hi_news18", "name": "News18 Hindi", "rss_url": "https://hindi.news18.com/commonfeeds/v1/hin/rss/india.xml", "topic": "general", "country": "IN", "site_domain": "news18.com"},
+        {"key": "hi_nbt", "name": "Navbharat Times", "rss_url": "https://navbharattimes.indiatimes.com/rssfeedsdefault.cms", "topic": "culture", "country": "IN", "site_domain": "navbharattimes.indiatimes.com"},
+    ],
+    "it": [
+        {"key": "it_ilfatto", "name": "Il Fatto Quotidiano", "rss_url": "https://www.ilfattoquotidiano.it/feed/", "topic": "politics", "country": "IT", "site_domain": "ilfattoquotidiano.it"},
+        {"key": "it_ilgiornale", "name": "Il Giornale", "rss_url": "https://www.ilgiornale.it/rss.xml", "topic": "general", "country": "IT", "site_domain": "ilgiornale.it"},
+    ],
+    "ja": [
+        {"key": "ja_itmedia", "name": "ITmedia", "rss_url": "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml", "topic": "technology", "country": "JP", "site_domain": "itmedia.co.jp"},
+        {"key": "ja_fnn", "name": "FNN Prime", "rss_url": "https://www.fnn.jp/rss/news", "topic": "general", "country": "JP", "site_domain": "fnn.jp"},
+    ],
+    "ko": [
+        {"key": "ko_mk", "name": "Maeil Business", "rss_url": "https://www.mk.co.kr/rss/30000001/", "topic": "business", "country": "KR", "site_domain": "mk.co.kr"},
+        {"key": "ko_ytn", "name": "YTN", "rss_url": "https://www.ytn.co.kr/_ln/rss.xml", "topic": "general", "country": "KR", "site_domain": "ytn.co.kr"},
+    ],
+    "nl": [
+        {"key": "nl_fd", "name": "FD", "rss_url": "https://fd.nl/rss.xml", "topic": "business", "country": "NL", "site_domain": "fd.nl"},
+        {"key": "nl_metronieuws", "name": "Metro Nieuws", "rss_url": "https://www.metronieuws.nl/feed/", "topic": "general", "country": "NL", "site_domain": "metronieuws.nl"},
+    ],
+    "ro": [
+        {"key": "ro_romanialibera", "name": "Romania Libera", "rss_url": "https://romanialibera.ro/feed/", "topic": "general", "country": "RO", "site_domain": "romanialibera.ro"},
+        {"key": "ro_spotmedia", "name": "Spotmedia", "rss_url": "https://spotmedia.ro/feed", "topic": "politics", "country": "RO", "site_domain": "spotmedia.ro"},
+    ],
+    "ru": [
+        {"key": "ru_mk", "name": "Moskovsky Komsomolets", "rss_url": "https://www.mk.ru/rss/index.xml", "topic": "general", "country": "RU", "site_domain": "mk.ru"},
+        {"key": "ru_kp", "name": "Komsomolskaya Pravda", "rss_url": "https://www.kp.ru/rss/news/", "topic": "world", "country": "RU", "site_domain": "kp.ru"},
+    ],
+    "tr": [
+        {"key": "tr_t24", "name": "T24", "rss_url": "https://t24.com.tr/rss", "topic": "general", "country": "TR", "site_domain": "t24.com.tr"},
+        {"key": "tr_duvar", "name": "Gazete Duvar", "rss_url": "https://www.gazeteduvar.com.tr/export/rss", "topic": "politics", "country": "TR", "site_domain": "gazeteduvar.com.tr"},
+    ],
+    "vi": [
+        {"key": "vi_vietnamplus", "name": "VietnamPlus", "rss_url": "https://www.vietnamplus.vn/rss/tin-moi-nhat.rss", "topic": "general", "country": "VN", "site_domain": "vietnamplus.vn"},
+        {"key": "vi_baotintuc", "name": "Bao Tin Tuc", "rss_url": "https://baotintuc.vn/rss/tin-moi-nhat.rss", "topic": "world", "country": "VN", "site_domain": "baotintuc.vn"},
+    ],
+    "zh": [
+        {"key": "zh_sina", "name": "Sina News", "rss_url": "https://rss.sina.com.cn/news/marquee/ddt.xml", "topic": "general", "country": "CN", "site_domain": "sina.com.cn"},
+        {"key": "zh_qqnews", "name": "QQ News", "rss_url": "https://news.qq.com/rss_newsgn.htm", "topic": "technology", "country": "CN", "site_domain": "qq.com"},
+    ],
+}
+
 TOPIC_CONFIGS = {
     "general": {"name": "General"},
     "world": {"name": "World"},
@@ -1290,6 +1353,7 @@ def build_news_sources():
         merged_sources = (
             list(source_list)
             + TOPICAL_SOURCE_EXTENSIONS.get(lang_key, [])
+            + UNIQUE_SOURCE_EXTENSIONS.get(lang_key, [])
             + (GOOGLE_TOPIC_SOURCE_EXTENSIONS.get(lang_key, []) if ENABLE_GOOGLE_TOPIC_SOURCES else [])
             + (GOOGLE_TOPIC_SOURCE_OVERRIDES.get(lang_key, []) if ENABLE_GOOGLE_TOPIC_SOURCES else [])
             + (CURATED_TOPIC_SOURCES.get(lang_key, []) if ENABLE_CURATED_TOPIC_SOURCES else [])
