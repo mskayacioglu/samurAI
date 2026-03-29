@@ -21,12 +21,52 @@ pip install -r requirements.txt
 ```bash
 cd /Users/mskayacioglu/Desktop/inf494_projet/app
 source .venv/bin/activate
-python app.py
+INGEST_ENABLED=1 INGEST_INTERVAL_SECONDS=900 python app.py
 ```
 
 Ardından tarayıcıdan:
 
 `http://localhost:8000`
+
+
+## Sürekli Çalışan Mimari (Scheduler + DB)
+
+Uygulama artık haberleri `GET /api/news` çağrısı sırasında canlı çekmek yerine, arka planda sürekli çalışan ingest job'u ile düzenli aralıklarla toplar ve veritabanına yazar.
+
+Akış:
+- Scheduler (`INGEST_INTERVAL_SECONDS`)
+- RSS toplama + makale gövdesi çıkarımı
+- Özet üretimi
+- SQLite veritabanına upsert (`app/news_data.db`)
+- API'nin DB'den okuması
+
+Varsayılan davranış:
+- Uygulama açılışında ilk ingest otomatik koşar (`INGEST_RUN_ON_START=1`)
+- Sonrasında belirlenen aralıkta ingest tekrar eder
+- Varsayılan olarak tüm diller ve tüm kaynaklar ingest edilir
+- Varsayılan model seti: `mbart50_xlsum,mt5-xlsum`
+- `GET /api/news` sadece DB'deki hazır özetleri döner; API çağrısında tekrar özetleme yapmaz
+- Her turda dil başına adil kota uygulanır (fair-share), tek dilin tüm limiti tüketmesi engellenir
+- Dil içinde kaynaklar round-robin işlenir, tek kaynağın diğerlerini baskılaması engellenir
+- Tur `INGEST_MAX_ITEMS_PER_RUN` limitine ulaştıysa scheduler beklemeden yeni tura geçer
+
+Önemli environment değişkenleri:
+- `INGEST_ENABLED=1`
+- `INGEST_RUN_ON_START=1`
+- `INGEST_INTERVAL_SECONDS=900`
+- `INGEST_LANGUAGES` (boş bırakılırsa tüm diller)
+- `INGEST_MODEL_KEYS=mbart50_xlsum,mt5-xlsum`
+- `INGEST_LIMIT_PER_SOURCE=50`
+- `INGEST_FETCH_LIMIT_PER_SOURCE=50` (source başına RSS'den çekilecek aday sayısı)
+- `INGEST_MAX_ITEMS_PER_RUN=200`
+- `INGEST_FROM_DATE=2026-03-01T00:00:00Z` (opsiyonel alt tarih sınırı)
+- `INGEST_UNTIL_DATE=2026-03-29T23:59:59Z` (opsiyonel üst tarih sınırı)
+- `INGEST_TOPIC`, `INGEST_COUNTRY`, `INGEST_REGION`, `INGEST_SOURCES` (opsiyonel filtreler)
+- `NEWS_DB_PATH=/absolute/path/news_data.db` (opsiyonel, verilmezse `app/news_data.db`)
+
+Not:
+- RSS kaynakları çoğunlukla son N haberi verir; bu nedenle "belirli tarihe kadar tüm geçmiş" kapsamı kaynağın sağladığı feed geçmişiyle sınırlıdır.
+- DB yazım denetim logu: `app/logs/db_operations.log` (insert/update ingest run kayıtları).
 
 ## Model Seçimi
 
@@ -131,6 +171,12 @@ Script varsayılan olarak `evaluation/eval_runs/run_<timestamp>/` altında üret
 ## API
 
 `GET /api/news`
+
+Not: Bu endpoint artık sonuçları veritabanından döner. Arka plan ingest'i henüz çalışmadıysa boş liste dönebilir.
+
+Ek endpointler:
+- `GET /api/ingest/status`: scheduler durumu + son ingest run özeti
+- `POST /api/ingest/run`: ingest'i hemen kuyruğa alır
 
 Sorgu parametreleri:
 - `language`: `en`, `tr`, `fr`, `de`, `es`, `it`, `ru`, `ar`, `hi`, `zh`, `ja`, `ko`, `nl`, `ro`, `vi`
