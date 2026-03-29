@@ -54,6 +54,8 @@ class NewsController:
         country = request.args.get("country", "")
         region = request.args.get("region", "")
         include_raw = request.args.get("include_raw", "false").lower() == "true"
+        keyword_enabled = request.args.get("keyword_enabled", "false").lower() == "true"
+        keyword = request.args.get("keyword", "").strip()
         translation_model_active = bool((self.catalog_service.translation_model_ref or "").strip())
         ingest_model_keys = self.ingestion_service.load_runtime_config().get("model_keys", [])
 
@@ -85,6 +87,13 @@ class NewsController:
         topic = normalize_filter_value(topic)
         country = normalize_filter_value(country).upper()
         region = normalize_filter_value(region)
+        if keyword_enabled:
+            if not keyword:
+                return jsonify({"error": "Keyword is required when keyword search is enabled"}), 400
+            if any(ch.isspace() for ch in keyword):
+                return jsonify({"error": "Keyword must be a single word without spaces"}), 400
+        else:
+            keyword = ""
 
         news_payload = self.feed_service.load_news(
             language_key=language,
@@ -96,6 +105,7 @@ class NewsController:
             region_key=region,
             limit_per_source=limit_per_source,
             include_raw=include_raw,
+            keyword=keyword,
         )
 
         return jsonify(
@@ -108,6 +118,7 @@ class NewsController:
                 "topic": topic,
                 "country": country,
                 "region": region,
+                "keyword": keyword,
                 "available_models": available_models,
                 "available_sources": self.catalog_service.sources,
                 "available_languages": self.catalog_service.languages,

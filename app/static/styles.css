@@ -1115,6 +1115,58 @@ body.light-theme .rail-head {
   pointer-events: auto;
 }
 
+.keyword-panel {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  margin-top: -16px;
+  pointer-events: none;
+  transition:
+    max-height 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.keyword-panel.is-open {
+  overflow: visible;
+  max-height: 92px;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 4px;
+  padding-top: 2px;
+  pointer-events: auto;
+}
+
+.control-field-keyword {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.control-field-translate {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.control-field-translate > label {
+  display: none;
+}
+
+.control-field-keyword > input {
+  width: 100%;
+  justify-self: stretch;
+  text-align: center;
+}
+
+.control-field-keyword > input::placeholder {
+  text-align: center;
+}
+
+.control-field-keyword > input:hover,
+.control-field-keyword > input:focus-visible,
+.control-field-keyword > input:active {
+  transform: none;
+}
+
 .control-field-translate > select:hover,
 .control-field-translate > select:focus-visible,
 .control-field-translate > select:active {
@@ -1540,7 +1592,8 @@ body.light-theme .column-toggle-btn:hover {
     animation-iteration-count: 1 !important;
   }
 
-  .translate-panel {
+  .translate-panel,
+  .keyword-panel {
     transition: none;
   }
 

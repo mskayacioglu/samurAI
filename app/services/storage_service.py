@@ -235,6 +235,60 @@ class StorageService:
 
         return [dict(row) for row in rows]
 
+    def fetch_news_items_with_summary(
+        self,
+        language_key: str,
+        model_key: str,
+        topic_key: str,
+        country_key: str,
+        region_key: str,
+        selected_sources: list[str],
+        keyword: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        clauses = [
+            "ni.language_key = ?",
+            "ns.model_key = ?",
+            "ns.language_key = ?",
+        ]
+        params: list[Any] = [language_key, model_key, language_key]
+
+        if topic_key:
+            clauses.append("ni.topic_key = ?")
+            params.append(topic_key)
+        if country_key:
+            clauses.append("ni.country_key = ?")
+            params.append(country_key.upper())
+        if region_key:
+            clauses.append("ni.region_key = ?")
+            params.append(region_key)
+        if selected_sources:
+            placeholders = ",".join(["?"] * len(selected_sources))
+            clauses.append(f"ni.source_key IN ({placeholders})")
+            params.extend(selected_sources)
+        if keyword:
+            clauses.append(
+                "(ni.title LIKE ? COLLATE NOCASE OR ns.summary LIKE ? COLLATE NOCASE OR ni.article_text LIKE ? COLLATE NOCASE)"
+            )
+            keyword_like = f"%{keyword}%"
+            params.extend([keyword_like, keyword_like, keyword_like])
+
+        sql = (
+            "SELECT ni.id, ni.link, ni.source_key, ni.source_name, ni.language_key, ni.title, "
+            "ni.published_at, ni.image_url, ni.article_text, ns.summary "
+            "FROM news_items ni "
+            "INNER JOIN news_summaries ns ON ns.news_item_id = ni.id "
+            f"WHERE {' AND '.join(clauses)} "
+            "ORDER BY COALESCE(ni.published_at, ni.fetched_at) DESC "
+            "LIMIT ?"
+        )
+        params.append(limit)
+
+        with self._connect() as conn:
+            rows = conn.execute(sql, tuple(params)).fetchall()
+
+        return [dict(row) for row in rows]
+
     def start_ingest_run(self, config: dict[str, Any]) -> int:
         logger = logging.getLogger("db_audit")
         started_at = self._utc_now()

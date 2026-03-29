@@ -102,30 +102,26 @@
               <div id="sources" class="source-checklist"></div>
             </div>
 
-            <div class="control-field control-field-select">
-              <label for="model">Model</label>
-              <select id="model">
-                {% for key, _ in models.items() %}
-                <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
-                  {{ key }}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <div class="control-inline control-inline-number">
-              <label for="limit">Source</label>
-              <input id="limit" type="number" value="2" min="1" max="15" />
-            </div>
-
             <div class="control-inline control-inline-toggle">
-              <label for="showImages">Image</label>
-              <div class="display-toggle" id="displayMode">
+              <label for="enableKeyword">Keyword</label>
+              <div class="display-toggle" id="keywordMode">
                 <label class="switch">
-                  <input type="checkbox" id="showImages" checked />
+                  <input type="checkbox" id="enableKeyword" />
                   <span class="slider"></span>
                 </label>
-                <span class="toggle-label">Show images</span>
+                <span class="toggle-label">Enable keyword search</span>
+              </div>
+            </div>
+
+            <div id="keywordPanel" class="keyword-panel" aria-hidden="true">
+              <div class="control-field control-field-keyword">
+                <input
+                  id="keywordInput"
+                  type="text"
+                  placeholder="Enter Keyword"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
               </div>
             </div>
 
@@ -142,7 +138,6 @@
 
             <div id="translatePanel" class="translate-panel" aria-hidden="true">
               <div class="control-field control-field-select control-field-translate">
-                <label for="outputLanguage">To</label>
                 <select id="outputLanguage">
                   <option value="__source__">-</option>
                   {% for key, language in languages.items() %}
@@ -150,6 +145,33 @@
                   {% endfor %}
                 </select>
               </div>
+            </div>
+
+            <div class="control-inline control-inline-toggle">
+              <label for="showImages">Image</label>
+              <div class="display-toggle" id="displayMode">
+                <label class="switch">
+                  <input type="checkbox" id="showImages" checked />
+                  <span class="slider"></span>
+                </label>
+                <span class="toggle-label">Show images</span>
+              </div>
+            </div>
+
+            <div class="control-inline control-inline-number">
+              <label for="limit">Per Article</label>
+              <input id="limit" type="number" value="2" min="1" max="15" />
+            </div>
+
+            <div class="control-field control-field-select">
+              <label for="model">Model</label>
+              <select id="model">
+                {% for key, _ in models.items() %}
+                <option value="{{ key }}" {% if key == default_model %}selected{% endif %}>
+                  {{ key }}
+                </option>
+                {% endfor %}
+              </select>
             </div>
             <button id="refreshBtn">Refresh Feed</button>
           </section>
@@ -192,6 +214,9 @@
       const showImagesEl = document.getElementById("showImages");
       const enableTranslateEl = document.getElementById("enableTranslate");
       const translatePanelEl = document.getElementById("translatePanel");
+      const enableKeywordEl = document.getElementById("enableKeyword");
+      const keywordPanelEl = document.getElementById("keywordPanel");
+      const keywordInputEl = document.getElementById("keywordInput");
       const appEl = document.querySelector(".app");
       const panelToggleBtn = document.getElementById("panelToggleBtn");
       const themeToggleBtn = document.getElementById("themeToggleBtn");
@@ -277,6 +302,20 @@
         outputLanguageEl.disabled = !translateEnabled;
         if (!translateEnabled) {
           outputLanguageEl.value = "__source__";
+        }
+      }
+
+      function sanitizeKeyword(rawValue) {
+        return (rawValue || "").replace(/\s+/g, "");
+      }
+
+      function applyKeywordPanelState() {
+        const keywordEnabled = !!enableKeywordEl?.checked;
+        keywordPanelEl.classList.toggle("is-open", keywordEnabled);
+        keywordPanelEl.setAttribute("aria-hidden", keywordEnabled ? "false" : "true");
+        keywordInputEl.disabled = !keywordEnabled;
+        if (!keywordEnabled) {
+          keywordInputEl.value = "";
         }
       }
 
@@ -884,8 +923,16 @@
 
       async function loadNews() {
         applyDisplayModeInPlace();
+        applyKeywordPanelState();
         const selectedSources = getSelectedSources();
         const translateEnabled = !!enableTranslateEl?.checked;
+        const keywordEnabled = !!enableKeywordEl?.checked;
+        const keyword = sanitizeKeyword(keywordInputEl.value);
+        keywordInputEl.value = keyword;
+        if (keywordEnabled && !keyword) {
+          setStatus("Keyword search is enabled. Enter a single word.", true);
+          return;
+        }
         const outputLanguage = translateEnabled
           ? outputLanguageEl.value === "__source__"
             ? languageEl.value
@@ -902,6 +949,8 @@
           region: normalizeFilterValue(regionEl.value),
           model: modelEl.value,
           limit: limitEl.value,
+          keyword_enabled: keywordEnabled ? "true" : "false",
+          keyword: keyword,
         });
         setStatus("Loading news...");
         latestItems = [];
@@ -926,6 +975,7 @@
               `Topic: ${topicEl.options[topicEl.selectedIndex]?.text || "All Types"}`,
               `Region: ${regionEl.options[regionEl.selectedIndex]?.text || "All Regions"}`,
               `Country: ${countryEl.options[countryEl.selectedIndex]?.text || "All Countries"}`,
+              `Keyword: ${keywordEnabled ? keyword : "-"}`,
             ].join("\n")
           );
           latestItems = data.items || [];
@@ -973,6 +1023,19 @@
       enableTranslateEl.addEventListener("change", () => {
         applyTranslatePanelState();
         setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      enableKeywordEl.addEventListener("change", () => {
+        applyKeywordPanelState();
+        setStatus("Filters updated. Click Refresh Feed to apply.");
+      });
+      keywordInputEl.addEventListener("input", () => {
+        const sanitized = sanitizeKeyword(keywordInputEl.value);
+        if (keywordInputEl.value !== sanitized) {
+          keywordInputEl.value = sanitized;
+        }
+        if (enableKeywordEl.checked) {
+          setStatus("Filters updated. Click Refresh Feed to apply.");
+        }
       });
       languageEl.addEventListener("change", () => {
         if (outputLanguageEl.value !== "__source__" && outputLanguageEl.value === languageEl.value) {
@@ -1028,6 +1091,7 @@
         updatePanelToggleLabel();
         syncLogoCenterState();
         applyTranslatePanelState();
+        applyKeywordPanelState();
         renderModelOptions();
         refreshSourceFilters();
         loadNews();

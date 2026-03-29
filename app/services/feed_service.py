@@ -27,18 +27,21 @@ class FeedService:
         region_key: str,
         limit_per_source: int,
         include_raw: bool,
+        keyword: str = "",
     ):
         source_count = len(selected_sources)
         if source_count == 0:
             source_count = max(1, len([k for k, v in self.catalog_service.sources.items() if v.get("language") == language_key]))
 
         query_limit = max(20, min(1000, source_count * limit_per_source * 6))
-        rows = self.storage_service.fetch_news_items(
+        rows = self.storage_service.fetch_news_items_with_summary(
             language_key=language_key,
+            model_key=model_key,
             topic_key=topic_key,
             country_key=country_key,
             region_key=region_key,
             selected_sources=selected_sources,
+            keyword=keyword,
             limit=query_limit,
         )
 
@@ -52,12 +55,7 @@ class FeedService:
             if source_count >= limit_per_source:
                 continue
 
-            summary = self.storage_service.get_summary(
-                news_item_id=row["id"],
-                model_key=model_key,
-                language_key=language_key,
-            )
-
+            summary = row["summary"]
             if not summary:
                 continue
 
