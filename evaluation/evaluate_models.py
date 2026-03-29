@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate local summarization models on a labeled news dataset.
+"""Evaluate local summarization models on a labeled news dataset or XL-Sum.
 
 Required columns in dataset records:
 - article text field (default: article)
@@ -16,11 +16,13 @@ Outputs (inside run directory):
 - model_summary.csv (aggregate mean/std per model)
 - run_config.json
 - report.md
+- report.pdf
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import importlib
 import json
@@ -47,16 +49,77 @@ try:
 except ImportError:  # pragma: no cover
     sacrebleu = None
 
+try:
+    from datasets import load_dataset
+except ImportError:  # pragma: no cover
+    load_dataset = None
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+except ImportError:  # pragma: no cover
+    A4 = None
+
 TOKEN_RE = re.compile(r"\b[\w'-]+\b", re.UNICODE)
 SENTENCE_SPLIT_RE = re.compile(r"[.!?]+")
 VOWELS_RE = re.compile(r"[aeiouy]+", re.IGNORECASE)
 
+XLSUM_BY_LANGUAGE_KEY = {
+    "en": "english",
+    "tr": "turkish",
+    "fr": "french",
+    "de": "german",
+    "es": "spanish",
+    "it": "italian",
+    "ru": "russian",
+    "ar": "arabic",
+    "hi": "hindi",
+    "zh": "chinese_simplified",
+    "ja": "japanese",
+    "ko": "korean",
+    "nl": "dutch",
+    "ro": "romanian",
+    "vi": "vietnamese",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Evaluate summarization models with ROUGE/BLEU plus extended metrics."
+        description=(
+            "Evaluate summarization models with ROUGE/BLEU plus "
+            "human-centered capability metrics."
+        )
     )
-    parser.add_argument("--dataset", required=True, help="Path to csv/tsv/json/jsonl dataset")
+    parser.add_argument("--dataset", default="", help="Path to csv/tsv/json/jsonl dataset")
+    parser.add_argument(
+        "--use-xlsum",
+        action="store_true",
+        help="Load dataset from Hugging Face XL-Sum instead of a local file",
+    )
+    parser.add_argument(
+        "--xlsum-language",
+        default="auto",
+        help="XL-Sum language subset; use 'auto' to map from language key",
+    )
+    parser.add_argument(
+        "--xlsum-split",
+        default="test",
+        help="XL-Sum split (default: test)",
+    )
+    parser.add_argument(
+        "--xlsum-cache-dir",
+        default="",
+        help="Optional Hugging Face datasets cache directory",
+    )
+    parser.add_argument(
+        "--xlsum-shuffle-seed",
+        type=int,
+        default=42,
+        help="Shuffle seed applied before max-samples slicing (XL-Sum mode)",
+    )
     parser.add_argument("--article-field", default="article", help="Field containing source text")
     parser.add_argument(
         "--reference-field",
@@ -82,7 +145,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--language",
         default="en",
-        help="Language key passed to summarizer (default: en)",
+        help="Language key passed to summarizer; use __all__ for all language keys",
+    )
+    parser.add_argument(
+        "--languages",
+        nargs="+",
+        default=None,
+        help="Optional explicit list of language keys (overrides --language)",
     )
     parser.add_argument(
         "--max-samples",
@@ -462,6 +531,64 @@ def load_records(dataset_path: Path) -> List[dict]:
     raise ValueError("Unsupported dataset extension. Use .jsonl, .json, .csv or .tsv")
 
 
+def load_xlsum_records(
+    *,
+    language: str,
+    split: str,
+    cache_dir: str,
+    shuffle_seed: int,
+) -> List[dict]:
+    if load_dataset is None:
+        raise SystemExit(
+            "Missing required package(s): datasets. Install with: pip install datasets"
+        )
+
+    kwargs = {"path": "csebuetnlp/xlsum", "name": language, "split": split}
+    if cache_dir:
+        kwargs["cache_dir"] = cache_dir
+
+    try:
+        dataset = load_dataset(**kwargs)
+    except Exception as exc:
+        raise SystemExit(
+            f"Failed to load XL-Sum ({language}/{split}): {exc}"
+        ) from exc
+
+    if shuffle_seed is not None:
+        dataset = dataset.shuffle(seed=shuffle_seed)
+    return [dict(record) for record in dataset]
+
+
+def resolve_selected_languages(
+    language_configs: Dict[str, dict], language_arg: str, languages_arg: Optional[List[str]]
+) -> List[str]:
+    if languages_arg:
+        selected = languages_arg
+    elif language_arg == "__all__":
+        selected = sorted(language_configs.keys())
+    else:
+        selected = [language_arg]
+
+    invalid = [lang for lang in selected if lang not in language_configs]
+    if invalid:
+        raise SystemExit(
+            f"Unknown language key(s): {invalid}. Available: {sorted(language_configs.keys())}"
+        )
+    return selected
+
+
+def resolve_xlsum_subset(language_key: str, xlsum_language_arg: str) -> str:
+    if xlsum_language_arg and xlsum_language_arg != "auto":
+        return xlsum_language_arg
+    subset = XLSUM_BY_LANGUAGE_KEY.get(language_key)
+    if not subset:
+        raise SystemExit(
+            f"No XL-Sum subset mapping for language key '{language_key}'. "
+            "Pass --xlsum-language explicitly."
+        )
+    return subset
+
+
 def normalize_row_value(value) -> str:
     if value is None:
         return ""
@@ -518,13 +645,13 @@ def write_csv(path: Path, rows: List[dict]) -> None:
 
 
 def aggregate_model_metrics(rows: List[dict]) -> List[dict]:
-    grouped: Dict[str, List[dict]] = defaultdict(list)
+    grouped: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
     for row in rows:
-        grouped[row["model"]].append(row)
+        grouped[(row["language"], row["model"])].append(row)
 
     aggregates: List[dict] = []
-    for model, model_rows in grouped.items():
-        aggregate = {"model": model, "samples": len(model_rows)}
+    for (language, model), model_rows in grouped.items():
+        aggregate = {"language": language, "model": model, "samples": len(model_rows)}
 
         metric_keys = [
             key
@@ -545,7 +672,7 @@ def aggregate_model_metrics(rows: List[dict]) -> List[dict]:
         aggregates.append(aggregate)
 
     aggregates.sort(
-        key=lambda x: x.get("capability_overall_mean", float("-inf")), reverse=True
+        key=lambda x: (x.get("language", ""), -x.get("capability_overall_mean", float("-inf")))
     )
     return aggregates
 
@@ -555,44 +682,134 @@ def build_report(aggregates: List[dict]) -> str:
         return "No results."
 
     lines = [
-        "# Summarization Evaluation Report",
+        "# XL-Sum / Summarization Evaluation Report",
         "",
         "Bu rapor model ortalama skorlarini listeler.",
+        "Metrikler, arXiv:2505.08253v1 (Section 2.4) cizgisindeki 5 insan-merkezli kaliteye gore raporlanmistir.",
         "",
-        "| Model | Capability Overall | ROUGE-L F1 | BLEU | Latency (s) | Compression |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| Language | Model | Overall (2.4) | Coherence | Accuracy | Clarity | Relevance | Efficiency | ROUGE-L F1 | BLEU |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
 
     for row in aggregates:
         lines.append(
-            "| {model} | {overall:.4f} | {rougel:.4f} | {bleu:.4f} | {lat:.3f} | {comp:.2f} |".format(
+            "| {language} | {model} | {overall:.4f} | {coh:.4f} | {acc:.4f} | {cla:.4f} | {rel:.4f} | {eff:.4f} | {rougel:.4f} | {bleu:.4f} |".format(
+                language=row.get("language", "-"),
                 model=row["model"],
                 overall=row.get("capability_overall_mean", float("nan")),
+                coh=row.get("capability_coherence_mean", float("nan")),
+                acc=row.get("capability_accuracy_mean", float("nan")),
+                cla=row.get("capability_clarity_mean", float("nan")),
+                rel=row.get("capability_relevance_mean", float("nan")),
+                eff=row.get("capability_efficiency_mean", float("nan")),
                 rougel=row.get("rougeL_fmeasure_mean", float("nan")),
                 bleu=row.get("bleu_mean", float("nan")),
-                lat=row.get("latency_seconds_mean", float("nan")),
-                comp=row.get("compression_ratio_mean", float("nan")),
             )
         )
 
     lines.extend(
         [
             "",
-            "## Capability Proxies (0-1)",
+            "## Evaluation of Metrics (Section 2.4 Alignment)",
             "",
-            "- `capability_coherence`: cumle akis duzeni + dusuk tekrar + uygun cumle uzunlugu",
-            "- `capability_accuracy`: referans tabanli skorlar (ROUGE-L/BLEU/METEOR-lite) + kaynak kapsama",
-            "- `capability_clarity`: okunabilirlik (EN icin Flesch) + tekrar cezasi",
-            "- `capability_relevance`: ROUGE-1 recall (varsa) + kaynak kelime geri cagirim",
-            "- `capability_efficiency`: gecikme ve sikistirma oraninin bilesimi",
+            "- `coherence`: dogal akicilik proxysi (cumle ritmi + tekrar cezasi + cumle uzunlugu dengesi).",
+            "- `accuracy`: referans dogruluk proxysi (ROUGE-L/BLEU/METEOR-lite + kaynak kapsama).",
+            "- `clarity`: anlasilabilirlik proxysi (okunabilirlik/sadelik + tekrar cezasi).",
+            "- `relevance`: konu kapsami proxysi (ROUGE-1 recall + source recall).",
+            "- `efficiency`: pratik verim proxysi (latency + compression).",
             "- `quality_factuality`: kaynakla tutarlilik (kapsama + extractive fragment)",
             "- `quality_completeness`: referans geri cagirim + uzunluk uyumu",
             "",
-            "Not: Bu capability skorlar dogrudan benchmark degil, insan-merkezli kriterlere yaklasik proxy degerlerdir.",
+            "Not: Bu skorlar dogrudan insan anotasyonu degil, 2.4 kriterlerini operasyonel hale getiren proxy degerlerdir.",
         ]
     )
 
     return "\n".join(lines)
+
+
+def _fmt_score(value: Optional[float], digits: int = 4) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.{digits}f}"
+
+
+def generate_pdf_report(path: Path, aggregates: List[dict], config: dict) -> bool:
+    if A4 is None:
+        return False
+
+    doc = SimpleDocTemplate(str(path), pagesize=A4, rightMargin=1.6 * cm, leftMargin=1.6 * cm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph("Summarization Evaluation Report (XL-Sum)", styles["Title"]))
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(
+        Paragraph(
+            (
+                "Metrics follow the Section 2.4 framing from arXiv:2505.08253v1 "
+                "(coherence, accuracy, clarity, relevance, efficiency)."
+            ),
+            styles["BodyText"],
+        )
+    )
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph(f"Generated at: {config.get('generated_at', '-')}", styles["BodyText"]))
+    story.append(Paragraph(f"Dataset: {config.get('dataset', '-')}", styles["BodyText"]))
+    story.append(Paragraph(f"Sample count: {config.get('sample_count', '-')}", styles["BodyText"]))
+    story.append(Paragraph(f"Language key: {config.get('language', '-')}", styles["BodyText"]))
+    story.append(Spacer(1, 0.5 * cm))
+
+    table_data = [
+        [
+            "Lang",
+            "Model",
+            "Overall",
+            "Coherence",
+            "Accuracy",
+            "Clarity",
+            "Relevance",
+            "Efficiency",
+            "ROUGE-L",
+            "BLEU",
+        ]
+    ]
+
+    for row in aggregates:
+        table_data.append(
+            [
+                row.get("language", "-"),
+                row.get("model", "-"),
+                _fmt_score(row.get("capability_overall_mean")),
+                _fmt_score(row.get("capability_coherence_mean")),
+                _fmt_score(row.get("capability_accuracy_mean")),
+                _fmt_score(row.get("capability_clarity_mean")),
+                _fmt_score(row.get("capability_relevance_mean")),
+                _fmt_score(row.get("capability_efficiency_mean")),
+                _fmt_score(row.get("rougeL_fmeasure_mean")),
+                _fmt_score(row.get("bleu_mean")),
+            ]
+        )
+
+    col_widths = [1.4 * cm, 2.8 * cm, 1.6 * cm, 1.7 * cm, 1.7 * cm, 1.7 * cm, 1.7 * cm, 1.7 * cm, 1.6 * cm, 1.6 * cm]
+    table = Table(table_data, repeatRows=1, colWidths=col_widths)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E8EDF4")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#9EA8B3")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+            ]
+        )
+    )
+    story.append(table)
+
+    doc.build(story)
+    return True
 
 
 def ensure_dependencies() -> None:
@@ -610,29 +827,25 @@ def ensure_dependencies() -> None:
 
 
 def load_summarization_runtime():
-    app_module_path = APP_DIR / "app.py"
-    if not app_module_path.exists():
-        raise SystemExit(
-            f"Cannot find runtime module: {app_module_path}. "
-            "Expected app runtime at app/app.py."
-        )
-
     app_dir_str = str(APP_DIR)
     if app_dir_str not in sys.path:
         sys.path.insert(0, app_dir_str)
 
-    existing_module = sys.modules.get("app")
-    existing_file = Path(getattr(existing_module, "__file__", "")).resolve() if existing_module else None
-    if existing_module and existing_file != app_module_path.resolve():
-        del sys.modules["app"]
+    for module_name in ["core", "app"]:
+        existing_module = sys.modules.get(module_name)
+        if existing_module:
+            del sys.modules[module_name]
 
     try:
-        runtime = importlib.import_module("app")
+        runtime = importlib.import_module("core")
     except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "Cannot import summarization runtime from app/app.py. "
-            f"Missing module: {exc.name}. Install project dependencies first."
-        ) from exc
+        try:
+            runtime = importlib.import_module("app")
+        except ModuleNotFoundError:
+            raise SystemExit(
+                "Cannot import summarization runtime from app/core.py or app/app.py. "
+                f"Missing module: {exc.name}. Install project dependencies first."
+            ) from exc
 
     required = ["LANGUAGE_CONFIGS", "MODEL_PATHS", "summarize_text"]
     missing = [name for name in required if not hasattr(runtime, name)]
@@ -653,11 +866,11 @@ def main() -> int:
 
     selected_models = args.models if args.models else sorted(model_paths.keys())
 
-    if args.language not in language_configs:
-        print(
-            f"[WARN] Unknown language key '{args.language}'. Continuing with provided key.",
-            file=sys.stderr,
-        )
+    selected_languages = resolve_selected_languages(
+        language_configs=language_configs,
+        language_arg=args.language,
+        languages_arg=args.languages,
+    )
 
     invalid_models = [m for m in selected_models if m not in model_paths]
     if invalid_models:
@@ -665,14 +878,16 @@ def main() -> int:
             f"Unknown model keys: {invalid_models}. Available: {sorted(model_paths.keys())}"
         )
 
-    dataset_path = Path(args.dataset)
-    if not dataset_path.exists():
-        raise SystemExit(f"Dataset not found: {dataset_path}")
-
-    records = load_records(dataset_path)
-    samples = prepare_samples(records, args)
-    if not samples:
-        raise SystemExit("No valid samples found. Check field names and dataset contents.")
+    shared_records: Optional[List[dict]] = None
+    shared_dataset_descriptor = ""
+    if not args.use_xlsum:
+        if not args.dataset:
+            raise SystemExit("Either --dataset or --use-xlsum must be provided.")
+        dataset_path = Path(args.dataset)
+        if not dataset_path.exists():
+            raise SystemExit(f"Dataset not found: {dataset_path}")
+        shared_records = load_records(dataset_path)
+        shared_dataset_descriptor = str(dataset_path.resolve())
 
     if args.output_dir:
         run_dir = Path(args.output_dir)
@@ -684,38 +899,78 @@ def main() -> int:
     scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
 
     detailed_rows: List[dict] = []
-    for model in selected_models:
-        print(f"[INFO] Evaluating model={model} on {len(samples)} samples")
-        for idx, sample in enumerate(samples, start=1):
-            start_t = time.perf_counter()
-            generated = summarize_fn(sample["source_text"], model, args.language)
-            latency = time.perf_counter() - start_t
+    dataset_descriptors: Dict[str, str] = {}
+    sample_counts: Dict[str, int] = {}
 
-            metrics = evaluate_sample(
-                source_text=sample["source_text"],
-                reference_summary=sample["reference_summary"],
-                generated_summary=generated,
-                latency_seconds=latency,
-                language_key=args.language,
-                scorer=scorer,
+    for language_key in selected_languages:
+        if args.use_xlsum:
+            xlsum_subset = resolve_xlsum_subset(language_key, args.xlsum_language)
+            records = load_xlsum_records(
+                language=xlsum_subset,
+                split=args.xlsum_split,
+                cache_dir=args.xlsum_cache_dir,
+                shuffle_seed=args.xlsum_shuffle_seed,
             )
+            dataset_descriptors[language_key] = (
+                f"hf://csebuetnlp/xlsum/{xlsum_subset}/{args.xlsum_split}"
+            )
+        else:
+            records = shared_records or []
+            dataset_descriptors[language_key] = shared_dataset_descriptor
 
-            row = {
-                "sample_id": sample["sample_id"],
-                "model": model,
-                "language": args.language,
-                "title": sample["title"],
-                "source_chars": len(sample["source_text"]),
-                "reference_chars": len(sample["reference_summary"]),
-                "summary_chars": len(generated),
-            }
-            row.update(metrics)
-            if args.include_summaries:
-                row["summary"] = generated
-            detailed_rows.append(row)
+        local_args = copy.deepcopy(args)
+        if args.use_xlsum:
+            if local_args.article_field == "article":
+                local_args.article_field = "text"
+            if local_args.reference_field == "reference_summary":
+                local_args.reference_field = "summary"
+            if not local_args.title_field:
+                local_args.title_field = "title"
 
-            if args.progress_every > 0 and idx % args.progress_every == 0:
-                print(f"[INFO] model={model} progress={idx}/{len(samples)}")
+        samples = prepare_samples(records, local_args)
+        if not samples:
+            raise SystemExit(
+                f"No valid samples for language '{language_key}'. "
+                "Check field names and dataset contents."
+            )
+        sample_counts[language_key] = len(samples)
+
+        for model in selected_models:
+            print(
+                f"[INFO] Evaluating language={language_key} model={model} on {len(samples)} samples"
+            )
+            for idx, sample in enumerate(samples, start=1):
+                start_t = time.perf_counter()
+                generated = summarize_fn(sample["source_text"], model, language_key)
+                latency = time.perf_counter() - start_t
+
+                metrics = evaluate_sample(
+                    source_text=sample["source_text"],
+                    reference_summary=sample["reference_summary"],
+                    generated_summary=generated,
+                    latency_seconds=latency,
+                    language_key=language_key,
+                    scorer=scorer,
+                )
+
+                row = {
+                    "sample_id": sample["sample_id"],
+                    "model": model,
+                    "language": language_key,
+                    "title": sample["title"],
+                    "source_chars": len(sample["source_text"]),
+                    "reference_chars": len(sample["reference_summary"]),
+                    "summary_chars": len(generated),
+                }
+                row.update(metrics)
+                if args.include_summaries:
+                    row["summary"] = generated
+                detailed_rows.append(row)
+
+                if args.progress_every > 0 and idx % args.progress_every == 0:
+                    print(
+                        f"[INFO] language={language_key} model={model} progress={idx}/{len(samples)}"
+                    )
 
     aggregates = aggregate_model_metrics(detailed_rows)
 
@@ -723,14 +978,17 @@ def main() -> int:
     write_csv(run_dir / "model_summary.csv", aggregates)
 
     config = {
-        "dataset": str(dataset_path.resolve()),
+        "dataset": dataset_descriptors,
+        "dataset_mode": "xlsum" if args.use_xlsum else "file",
+        "xlsum_language": args.xlsum_language if args.use_xlsum else "",
+        "xlsum_split": args.xlsum_split if args.use_xlsum else "",
         "article_field": args.article_field,
         "reference_field": args.reference_field,
         "id_field": args.id_field,
         "title_field": args.title_field,
         "models": selected_models,
-        "language": args.language,
-        "sample_count": len(samples),
+        "languages": selected_languages,
+        "sample_count_by_language": sample_counts,
         "generated_at": datetime.now().isoformat(),
     }
     (run_dir / "run_config.json").write_text(
@@ -740,6 +998,13 @@ def main() -> int:
 
     report_text = build_report(aggregates)
     (run_dir / "report.md").write_text(report_text, encoding="utf-8")
+
+    pdf_ready = generate_pdf_report(run_dir / "report.pdf", aggregates, config)
+    if not pdf_ready:
+        print(
+            "[WARN] PDF report was skipped. Install reportlab to enable report.pdf generation.",
+            file=sys.stderr,
+        )
 
     print(f"[INFO] Evaluation completed. Outputs: {run_dir}")
     return 0

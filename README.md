@@ -99,7 +99,7 @@ Not:
 - `SOURCE_OVERSAMPLE_FACTOR` (varsayılan `4`) ile kaynak başına daha fazla aday link çekilip, çekilemeyen haberler yerine yeni adaylar denenir.
 - API yanıtındaki her haber için `image_url` alanı da döner (önce RSS medya alanları, yoksa haber sayfası `og:image`/`twitter:image`).
 
-## Model Değerlendirme (ROUGE/BLEU + Extended)
+## Model Değerlendirme (XL-Sum + Section 2.4 Metrikleri + PDF)
 
 Haber özetleme modellerini karşılaştırmak için `evaluate_models.py` script'i eklendi.
 
@@ -132,6 +132,23 @@ source .venv/bin/activate
   --include-summaries
 ```
 
+XL-Sum üzerinden doğrudan değerlendirme örneği:
+
+```bash
+cd /Users/mskayacioglu/Desktop/inf494_projet/evaluation
+source .venv/bin/activate
+./run_evaluation.sh \
+  --use-xlsum \
+  --xlsum-language auto \
+  --xlsum-split test \
+  --models mbart50_xlsum mt5-xlsum \
+  --language __all__ \
+  --max-samples 100 \
+  --include-summaries
+```
+
+Bu komut, projedeki 15 dil anahtarının tamamında (`en,tr,fr,de,es,it,ru,ar,hi,zh,ja,ko,nl,ro,vi`) XL-Sum alt-kümelerini otomatik eşleyerek değerlendirme yapar.
+
 `run_evaluation.sh` script'i otomatik olarak:
 - `.venv` yoksa oluşturur
 - `requirements.txt` bağımlılıklarını kurar
@@ -144,6 +161,7 @@ Script varsayılan olarak `evaluation/eval_runs/run_<timestamp>/` altında üret
 - `detailed_metrics.csv`: örnek-bazlı skorlar
 - `model_summary.csv`: model ortalama/std skorlar
 - `report.md`: hızlı karşılaştırma tablosu
+- `report.pdf`: sunum/rapor için PDF çıktı
 - `run_config.json`: koşu konfigürasyonu
 
 ### Hesaplanan metrikler
@@ -158,15 +176,18 @@ Script varsayılan olarak `evaluation/eval_runs/run_<timestamp>/` altında üret
   - `fragment_coverage`, `fragment_density` (extractiveness)
   - `novelty_1gram`, `novelty_2gram`, `repetition_3gram`
 - İnsan-merkezli capability proxy skorları (0-1):
-  - `capability_coherence`
-  - `capability_accuracy`
-  - `capability_clarity`
-  - `capability_relevance`
-  - `capability_efficiency`
+  - `capability_coherence` (Coherence)
+  - `capability_accuracy` (Accuracy)
+  - `capability_clarity` (Clarity)
+  - `capability_relevance` (Relevance)
+  - `capability_efficiency` (Efficiency)
   - `capability_overall`
 - Ek kalite proxy skorları (0-1):
   - `quality_factuality`
   - `quality_completeness`
+
+Not:
+- Section 2.4'teki kriterler (coherence, accuracy, clarity, relevance, efficiency) bu projede ölçülebilir proxy metriklerle operasyonelleştirilmiştir.
 
 ## API
 
