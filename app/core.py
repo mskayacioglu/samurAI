@@ -51,6 +51,7 @@ MODEL_PATHS = {
         PROJECT_ROOT, "models", "bart_base-reuters", "bart-reuters-best"
     ),
     "mbart50_xlsum": os.path.join(PROJECT_ROOT, "models", "mbart50-xlsum"),
+    "mbart-xlsum-2": os.path.join(PROJECT_ROOT, "models", "mbart-xlsum-2"),
     "mt5-xlsum": os.path.join(PROJECT_ROOT, "models", "mt5-xlsum"),
 }
 
@@ -3211,11 +3212,22 @@ def summarize_text(text: str, model_key: str, language_key: str):
                     "repetition_penalty": 1.2,
                 }
             )
-        elif model_key == "mbart50_xlsum":
+        elif model_key in {"mbart50_xlsum", "mbart-xlsum-2"}:
             language = LANGUAGE_CONFIGS.get(language_key, LANGUAGE_CONFIGS["en"])
             mbart_lang = language["mbart_lang"]
-            tokenizer.src_lang = mbart_lang
-            forced_bos_token_id = tokenizer.lang_code_to_id.get(mbart_lang)
+            if hasattr(tokenizer, "src_lang"):
+                tokenizer.src_lang = mbart_lang
+
+            forced_bos_token_id = None
+            lang_code_map = getattr(tokenizer, "lang_code_to_id", None)
+            if isinstance(lang_code_map, dict):
+                forced_bos_token_id = lang_code_map.get(mbart_lang)
+            if forced_bos_token_id is None and hasattr(tokenizer, "convert_tokens_to_ids"):
+                candidate_id = tokenizer.convert_tokens_to_ids(mbart_lang)
+                unk_id = getattr(tokenizer, "unk_token_id", None)
+                if candidate_id is not None and candidate_id != unk_id:
+                    forced_bos_token_id = candidate_id
+
             generate_kwargs.update(
                 {
                     "max_length": 90,

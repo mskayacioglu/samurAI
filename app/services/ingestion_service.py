@@ -45,8 +45,8 @@ class IngestionService:
 
     @staticmethod
     def _default_model_keys() -> list[str]:
-        # Precompute both multilingual models by default.
-        return ["mbart50_xlsum", "mt5-xlsum"]
+        # Precompute multilingual models by default.
+        return ["mbart50_xlsum", "mbart-xlsum-2", "mt5-xlsum"]
 
     def _resolve_model_keys(self) -> list[str]:
         raw_model_keys = (os.getenv("INGEST_MODEL_KEYS") or "").strip()

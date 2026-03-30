@@ -51,8 +51,10 @@ except ImportError:  # pragma: no cover
 
 try:
     from datasets import load_dataset
+    from datasets import get_dataset_config_names
 except ImportError:  # pragma: no cover
     load_dataset = None
+    get_dataset_config_names = None
 
 try:
     from reportlab.lib import colors
@@ -71,17 +73,15 @@ XLSUM_BY_LANGUAGE_KEY = {
     "en": "english",
     "tr": "turkish",
     "fr": "french",
-    "de": "german",
+    # Not all project language keys have a matching XL-Sum subset.
+    # Unsupported ones are handled gracefully in runtime filtering.
     "es": "spanish",
-    "it": "italian",
     "ru": "russian",
     "ar": "arabic",
     "hi": "hindi",
     "zh": "chinese_simplified",
     "ja": "japanese",
     "ko": "korean",
-    "nl": "dutch",
-    "ro": "romanian",
     "vi": "vietnamese",
 }
 
@@ -559,6 +559,21 @@ def load_xlsum_records(
     return [dict(record) for record in dataset]
 
 
+def get_xlsum_available_subsets(cache_dir: str) -> List[str]:
+    if get_dataset_config_names is None:
+        raise SystemExit(
+            "Missing required package(s): datasets. Install with: pip install datasets"
+        )
+    kwargs = {"path": "csebuetnlp/xlsum"}
+    if cache_dir:
+        kwargs["cache_dir"] = cache_dir
+    try:
+        names = get_dataset_config_names(**kwargs)
+    except Exception as exc:
+        raise SystemExit(f"Failed to fetch XL-Sum config names: {exc}") from exc
+    return sorted(set(names))
+
+
 def resolve_selected_languages(
     language_configs: Dict[str, dict], language_arg: str, languages_arg: Optional[List[str]]
 ) -> List[str]:
@@ -587,6 +602,34 @@ def resolve_xlsum_subset(language_key: str, xlsum_language_arg: str) -> str:
             "Pass --xlsum-language explicitly."
         )
     return subset
+
+
+def resolve_xlsum_language_plan(
+    *,
+    selected_languages: List[str],
+    xlsum_language_arg: str,
+    available_subsets: List[str],
+) -> Tuple[List[str], Dict[str, str], Dict[str, str]]:
+    available = set(available_subsets)
+    usable_languages: List[str] = []
+    subset_by_language: Dict[str, str] = {}
+    skipped: Dict[str, str] = {}
+
+    for lang in selected_languages:
+        try:
+            subset = resolve_xlsum_subset(lang, xlsum_language_arg)
+        except SystemExit as exc:
+            skipped[lang] = str(exc)
+            continue
+        if subset not in available:
+            skipped[lang] = (
+                f"XL-Sum subset '{subset}' not available for language key '{lang}'"
+            )
+            continue
+        usable_languages.append(lang)
+        subset_by_language[lang] = subset
+
+    return usable_languages, subset_by_language, skipped
 
 
 def normalize_row_value(value) -> str:
@@ -872,6 +915,25 @@ def main() -> int:
         languages_arg=args.languages,
     )
 
+    xlsum_subset_by_language: Dict[str, str] = {}
+    skipped_xlsum_languages: Dict[str, str] = {}
+    if args.use_xlsum:
+        available_subsets = get_xlsum_available_subsets(args.xlsum_cache_dir)
+        selected_languages, xlsum_subset_by_language, skipped_xlsum_languages = (
+            resolve_xlsum_language_plan(
+                selected_languages=selected_languages,
+                xlsum_language_arg=args.xlsum_language,
+                available_subsets=available_subsets,
+            )
+        )
+        if skipped_xlsum_languages:
+            for lang, reason in skipped_xlsum_languages.items():
+                print(f"[WARN] Skipping language={lang}. {reason}", file=sys.stderr)
+        if not selected_languages:
+            raise SystemExit(
+                "No evaluable languages remain after XL-Sum subset compatibility filtering."
+            )
+
     invalid_models = [m for m in selected_models if m not in model_paths]
     if invalid_models:
         raise SystemExit(
@@ -904,7 +966,7 @@ def main() -> int:
 
     for language_key in selected_languages:
         if args.use_xlsum:
-            xlsum_subset = resolve_xlsum_subset(language_key, args.xlsum_language)
+            xlsum_subset = xlsum_subset_by_language[language_key]
             records = load_xlsum_records(
                 language=xlsum_subset,
                 split=args.xlsum_split,
@@ -988,6 +1050,7 @@ def main() -> int:
         "title_field": args.title_field,
         "models": selected_models,
         "languages": selected_languages,
+        "skipped_languages": skipped_xlsum_languages,
         "sample_count_by_language": sample_counts,
         "generated_at": datetime.now().isoformat(),
     }

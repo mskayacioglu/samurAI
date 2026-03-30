@@ -44,7 +44,7 @@ Varsayılan davranış:
 - Uygulama açılışında ilk ingest otomatik koşar (`INGEST_RUN_ON_START=1`)
 - Sonrasında belirlenen aralıkta ingest tekrar eder
 - Varsayılan olarak tüm diller ve tüm kaynaklar ingest edilir
-- Varsayılan model seti: `mbart50_xlsum,mt5-xlsum`
+- Varsayılan model seti: `mbart50_xlsum,mbart-xlsum-2,mt5-xlsum`
 - `GET /api/news` sadece DB'deki hazır özetleri döner; API çağrısında tekrar özetleme yapmaz
 - Her turda dil başına adil kota uygulanır (fair-share), tek dilin tüm limiti tüketmesi engellenir
 - Dil içinde kaynaklar round-robin işlenir, tek kaynağın diğerlerini baskılaması engellenir
@@ -55,7 +55,7 @@ Varsayılan davranış:
 - `INGEST_RUN_ON_START=1`
 - `INGEST_INTERVAL_SECONDS=900`
 - `INGEST_LANGUAGES` (boş bırakılırsa tüm diller)
-- `INGEST_MODEL_KEYS=mbart50_xlsum,mt5-xlsum`
+- `INGEST_MODEL_KEYS=mbart50_xlsum,mbart-xlsum-2,mt5-xlsum`
 - `INGEST_LIMIT_PER_SOURCE=50`
 - `INGEST_FETCH_LIMIT_PER_SOURCE=50` (source başına RSS'den çekilecek aday sayısı)
 - `INGEST_MAX_ITEMS_PER_RUN=200`
@@ -81,9 +81,11 @@ Desteklenen model anahtarları:
 - `bart_base_cnn`
 - `bart_reuters`
 - `mbart50_xlsum` (15 dil için çok dilli özetleme modeli)
+- `mbart-xlsum-2` (15 dil için çok dilli özetleme modeli)
+- `mt5-xlsum` (15 dil için çok dilli özetleme modeli)
 
 Not:
-- İngilizce dışı dillerde API, otomatik olarak `mbart50_xlsum` modelini kullanır.
+- İngilizce dışı dillerde API, sadece çok dilli modelleri (`mbart50_xlsum`, `mbart-xlsum-2`, `mt5-xlsum`) kabul eder; geçersiz seçimde `mbart50_xlsum` kullanılır.
 - Çeviri katmanı opsiyoneldir. `TRANSLATION_MODEL_REF` set edilirse başlık/özet hedef dile çevrilebilir.
 - Varsayılan dil `en` olarak gelir; `LANGUAGE_KEY` ile değiştirilebilir.
 - Her dil için popüler kaynak havuzu + kategori bazlı ek kaynaklar otomatik üretilir.
@@ -141,7 +143,7 @@ source .venv/bin/activate
   --use-xlsum \
   --xlsum-language auto \
   --xlsum-split test \
-  --models mbart50_xlsum mt5-xlsum \
+  --models mbart50_xlsum mbart-xlsum-2 mt5-xlsum \
   --language __all__ \
   --max-samples 100 \
   --include-summaries

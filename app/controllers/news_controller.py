@@ -7,6 +7,9 @@ from services.ingestion_service import IngestionService
 from services.ingest_scheduler_service import IngestSchedulerService
 
 
+MULTILINGUAL_MODEL_KEYS = {"mbart50_xlsum", "mbart-xlsum-2", "mt5-xlsum"}
+
+
 class NewsController:
     def __init__(
         self,
@@ -69,12 +72,12 @@ class NewsController:
         if not available_models:
             available_models = self.catalog_service.available_model_keys()
         if language != "en":
-            available_models = [m for m in available_models if m in {"mbart50_xlsum", "mt5-xlsum"}]
+            available_models = [m for m in available_models if m in MULTILINGUAL_MODEL_KEYS]
 
         if not self.catalog_service.is_valid_model(model_key) or model_key not in available_models:
             return jsonify({"error": "Invalid model key", "models": available_models}), 400
 
-        if language != "en" and model_key not in {"mbart50_xlsum", "mt5-xlsum"}:
+        if language != "en" and model_key not in MULTILINGUAL_MODEL_KEYS:
             model_key = "mbart50_xlsum"
 
         selected_sources = []
