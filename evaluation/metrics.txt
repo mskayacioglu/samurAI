@@ -1,0 +1,76 @@
+Coherence
+0.50*(1 - sentence_len_std/20) + 0.30*(1 - repetition_3gram) + 0.20*ideal_sentence_length_score
+Kod: evaluate_models.py (line 419)
+
+Accuracy
+ref_acc = mean(ROUGE-L F1, BLEU, METEOR-lite)
+0.70*ref_acc + 0.30*source_coverage
+Kod: evaluate_models.py (line 425)
+
+Clarity
+0.70*readability_component + 0.30*(1 - repetition_3gram)
+Kod: evaluate_models.py (line 431)
+
+Relevance
+0.70*ROUGE1_recall + 0.30*source_recall (referans yoksa sadece source_recall)
+Kod: evaluate_models.py (line 438)
+
+Efficiency
+latency_score = 1/(1+latency_per_1k_tokens)
+compression_score = clamp((compression_ratio-2)/18)
+efficiency = 0.60*latency_score + 0.40*compression_score
+Kod: evaluate_models.py (line 453)
+
+Overall
+mean(coherence, accuracy, clarity, relevance, efficiency)
+Kod: evaluate_models.py (line 458)
+
+---
+
+sentence_len_std: Özet içindeki cümle uzunluklarının standart sapması. Düşükse akış daha dengeli.
+
+repetition_3gram: 3-gram tekrar oranı. Yüksekse model aynı kalıpları tekrar ediyor.
+
+ideal_sentence_length_score: Ortalama cümle uzunluğu 8-25 token aralığına yakınsa yüksek skor.
+
+ROUGE-L F1: Referans özetle en uzun ortak alt dizi benzerliği (yapısal örtüşme).
+
+BLEU: Referansla n-gram eşleşmesi (özellikle kelime dizisi uyumu).
+
+METEOR-lite: Token eşleşmesi + parça cezası (akıcılık/örtüşme dengesi).
+
+source_coverage: Üretilen özet kelime dağarcığının ne kadarı kaynak metinde var (hallucination riskine proxy).
+
+source_recall: Kaynak kelime dağarcığının ne kadarı özete taşınmış (kapsam proxy).
+
+flesch_reading_ease (EN): Okunabilirlik seviyesi (yüksek daha kolay okuma).
+
+readability_component: EN’de Flesch’ten, diğer dillerde cümle uzunluğu heuristiğinden gelen açıklık sinyali.
+
+fragment_coverage: Özetin kaynakta birebir bulunan metin parçalarıyla kaplanma oranı.
+
+fragment_density: Bu eşleşen parçaların ne kadar uzun bloklar halinde geldiği (yüksekse daha extractive).
+
+latency_seconds: Özet üretim süresi.
+
+latency_per_1k: 1000 kaynak token başına gecikme (metin uzunluğuna normalize hız).
+
+compression_ratio: Kaynak token / özet token. Daha yüksek, daha sıkı özet.
+
+Bunlardan türetilen 5 kriter:
+
+coherence: Cümle ritmi + düşük tekrar + uygun cümle uzunluğu.
+
+accuracy: Referans benzerliği + kaynağa bağlılık.
+
+clarity: Okunabilirlik + düşük tekrar.
+
+relevance: Referans recall + kaynaktan anlamlı kapsama.
+
+efficiency: Hız + sıkıştırma dengesi.
+
+capability_overall: Bu 5 skorun ortalaması.
+
+quality_factuality: Kaynağa sadakat (coverage + fragment coverage).
+
+quality_completeness: Referans recall + referans uzunluğuna yakınlık.
