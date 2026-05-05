@@ -105,6 +105,19 @@ Not:
 
 Haber özetleme modellerini karşılaştırmak için `evaluate_models.py` script'i eklendi.
 
+Colab/A100 üzerinde Drive'daki modellerle çalışmak için hazır notebook:
+
+`models/pipelines/xlsum_model_evaluation_pipeline.ipynb`
+
+Notebook varsayılan olarak:
+- Google Drive'ı mount eder
+- `DRIVE_PROJECT_ROOT=/content/drive/MyDrive/inf494_projet` altındaki modelleri okur
+- XL-Sum `test` split'ini kullanır ve `train` split'ini engeller
+- İngilizce BART modellerini sadece `en` üzerinde, çok dilli modelleri XL-Sum'da mevcut seçili dillerde ölçer
+- `detailed_metrics.csv`, `model_language_summary.csv`, `model_overall_macro_summary.csv`, `skipped_models.csv`, `xlsum_evaluation_report.xlsx`, `report.md` ve grafikler üretir
+
+Not: Projedeki 15 dil listesinde `de`, `it`, `nl`, `ro` yer alır; public `csebuetnlp/xlsum` sürümünde bu dört dil için eşleşen subset yoksa notebook bunları `language_plan` sheet'inde skipped olarak raporlar.
+
 ### Desteklenen veri formatı
 
 - `jsonl`, `json`, `csv`, `tsv`
@@ -149,7 +162,7 @@ source .venv/bin/activate
   --include-summaries
 ```
 
-Bu komut, projedeki 15 dil anahtarının tamamında (`en,tr,fr,de,es,it,ru,ar,hi,zh,ja,ko,nl,ro,vi`) XL-Sum alt-kümelerini otomatik eşleyerek değerlendirme yapar.
+Bu komut, projedeki 15 dil anahtarını (`en,tr,fr,de,es,it,ru,ar,hi,zh,ja,ko,nl,ro,vi`) dener; public XL-Sum'da eşleşen subset'i olmayan dilleri skipped olarak raporlar.
 
 `run_evaluation.sh` script'i otomatik olarak:
 - `.venv` yoksa oluşturur

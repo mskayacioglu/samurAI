@@ -73,15 +73,19 @@ XLSUM_BY_LANGUAGE_KEY = {
     "en": "english",
     "tr": "turkish",
     "fr": "french",
-    # Not all project language keys have a matching XL-Sum subset.
-    # Unsupported ones are handled gracefully in runtime filtering.
+    # Public csebuetnlp/xlsum currently does not expose every project language.
+    # Missing subsets are handled gracefully in runtime filtering.
+    "de": "german",
     "es": "spanish",
+    "it": "italian",
     "ru": "russian",
     "ar": "arabic",
     "hi": "hindi",
     "zh": "chinese_simplified",
     "ja": "japanese",
     "ko": "korean",
+    "nl": "dutch",
+    "ro": "romanian",
     "vi": "vietnamese",
 }
 
