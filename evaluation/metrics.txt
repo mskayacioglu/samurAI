@@ -1,76 +1,122 @@
 Coherence
-0.50*(1 - sentence_len_std/20) + 0.30*(1 - repetition_3gram) + 0.20*ideal_sentence_length_score
-Kod: evaluate_models.py (line 419)
+coherence = clamp01(
+  0.50*clamp01(1 - sentence_len_std/20)
+  + 0.30*(1 - repetition_3gram)
+  + 0.20*ideal_sentence_length_score
+)
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (evaluate_summary ~1297-1301),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (evaluate_summary ~2459-2463)
 
 Accuracy
-ref_acc = mean(ROUGE-L F1, BLEU, METEOR-lite)
-0.70*ref_acc + 0.30*source_coverage
-Kod: evaluate_models.py (line 425)
+ref_acc = safe_mean([rougeL_fmeasure, bleu, meteor_lite])
+accuracy = clamp01(0.70*(ref_acc if ref_acc is not None else source_coverage) + 0.30*source_coverage)
+Not: ref_acc yoksa accuracy = source_coverage olur.
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1302-1303),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2464-2465)
 
 Clarity
-0.70*readability_component + 0.30*(1 - repetition_3gram)
-Kod: evaluate_models.py (line 431)
+clarity = clamp01(0.70*readability_component + 0.30*(1 - repetition_3gram))
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1304),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2466)
 
 Relevance
-0.70*ROUGE1_recall + 0.30*source_recall (referans yoksa sadece source_recall)
-Kod: evaluate_models.py (line 438)
+relevance = clamp01(0.70*rouge1_recall + 0.30*source_recall)
+Not: Pipeline içinde "referans yoksa sadece source_recall" diye ayrı bir fallback yoktur.
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1305),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2467)
 
 Efficiency
-latency_score = 1/(1+latency_per_1k_tokens)
-compression_score = clamp((compression_ratio-2)/18)
-efficiency = 0.60*latency_score + 0.40*compression_score
-Kod: evaluate_models.py (line 453)
+latency_per_1k_tokens = latency_seconds / max(source_len/1000, 1e-6)
+latency_score = 1/(1 + latency_per_1k_tokens)
+compression_score = clamp01((compression_ratio - 2)/18)
+efficiency = clamp01(0.60*latency_score + 0.40*compression_score)
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1307-1310),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2469-2472)
 
-Overall
-mean(coherence, accuracy, clarity, relevance, efficiency)
-Kod: evaluate_models.py (line 458)
+Capability Overall
+capability_overall = safe_mean([coherence, accuracy, clarity, relevance, efficiency]) or 0.0
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1311),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2473)
+
+Quality Factuality
+quality_factuality = clamp01(0.60*source_coverage + 0.40*fragment_coverage)
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1313),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2475)
+
+Quality Completeness
+length_alignment = clamp01(1 - abs(summary_len - ref_len)/max(ref_len, 1))
+quality_completeness = clamp01(0.70*rouge1_recall + 0.30*length_alignment)
+Kod: evaluation/pipelines/xlsum_model_evaluation_pipeline_full.ipynb (~1314-1315),
+     evaluation/pipelines/xlsum_model_evaluation_pipeline200.ipynb (~2476-2477)
 
 ---
 
-sentence_len_std: Özet içindeki cümle uzunluklarının standart sapması. Düşükse akış daha dengeli.
+sentence_len_std: Özet içindeki cümle uzunluklarının standart sapması. Düşükse akış daha dengeli. 
+(Satır: full ~1288, ~1342 | 200 ~2450, ~2504)
 
-repetition_3gram: 3-gram tekrar oranı. Yüksekse model aynı kalıpları tekrar ediyor.
+repetition_3gram: 3-gram tekrar oranı. Yüksekse model aynı kalıpları tekrar ediyor. 
+(Satır: full ~1287, ~1340 | 200 ~2449, ~2502)
 
-ideal_sentence_length_score: Ortalama cümle uzunluğu 8-25 token aralığına yakınsa yüksek skor.
+ideal_sentence_length_score: Dil CJK (zh/ja/ko) ise 12-45, diğer dillerde 8-25 token aralığına yakınsa yüksek skor. (Satır: full ~1230, ~1294 | 200 ~2392, ~2456)
 
-ROUGE-L F1: Referans özetle en uzun ortak alt dizi benzerliği (yapısal örtüşme).
+ROUGE-L F1: Referans özetle en uzun ortak alt dizi benzerliği (yapısal örtüşme). 
+(Satır: full ~1275, ~1330 | 200 ~2437, ~2492)
 
-BLEU: Referansla n-gram eşleşmesi (özellikle kelime dizisi uyumu).
+BLEU: Referansla n-gram eşleşmesi (özellikle kelime dizisi uyumu). 
+(Satır: full ~1276, ~1331 | 200 ~2438, ~2493)
 
-METEOR-lite: Token eşleşmesi + parça cezası (akıcılık/örtüşme dengesi).
+METEOR-lite: Token eşleşmesi + parça cezası (akıcılık/örtüşme dengesi). 
+(Satır: full ~1120, ~1277, ~1332 | 200 ~2282, ~2439, ~2494)
 
-source_coverage: Üretilen özet kelime dağarcığının ne kadarı kaynak metinde var (hallucination riskine proxy).
+source_coverage: Üretilen özet kelime dağarcığının ne kadarı kaynak metinde var (hallucination riskine proxy). 
+(Satır: full ~1281, ~1334 | 200 ~2443, ~2496)
 
-source_recall: Kaynak kelime dağarcığının ne kadarı özete taşınmış (kapsam proxy).
+source_recall: Kaynak kelime dağarcığının ne kadarı özete taşınmış (kapsam proxy). 
+(Satır: full ~1282, ~1335 | 200 ~2444, ~2497)
 
-flesch_reading_ease (EN): Okunabilirlik seviyesi (yüksek daha kolay okuma).
+flesch_reading_ease (EN): Okunabilirlik seviyesi (yüksek daha kolay okuma). 
+(Satır: full ~1251, ~1290, ~1343 | 200 ~2413, ~2452, ~2505)
 
-readability_component: EN’de Flesch’ten, diğer dillerde cümle uzunluğu heuristiğinden gelen açıklık sinyali.
+readability_component: EN’de Flesch’ten, diğer dillerde cümle uzunluğu heuristiğinden gelen açıklık sinyali. 
+(Satır: full ~1291, ~1304 | 200 ~2453, ~2466)
 
-fragment_coverage: Özetin kaynakta birebir bulunan metin parçalarıyla kaplanma oranı.
+fragment_coverage: Özetin kaynakta birebir bulunan metin parçalarıyla kaplanma oranı. 
+(Satır: full ~1284, ~1336 | 200 ~2446, ~2498)
 
-fragment_density: Bu eşleşen parçaların ne kadar uzun bloklar halinde geldiği (yüksekse daha extractive).
+fragment_density: Bu eşleşen parçaların ne kadar uzun bloklar halinde geldiği. 
+(Satır: full ~1284, ~1337 | 200 ~2446, ~2499)
 
-latency_seconds: Özet üretim süresi.
+latency_seconds: Özet üretim süresi. 
+(Satır: full ~1263, ~1344 | 200 ~2425, ~2506)
 
-latency_per_1k: 1000 kaynak token başına gecikme (metin uzunluğuna normalize hız).
+latency_per_1k: latency_seconds / max(source_len/1000, 1e-6). 
+(Satır: full ~1307, ~1345 | 200 ~2469, ~2507)
 
-compression_ratio: Kaynak token / özet token. Daha yüksek, daha sıkı özet.
+compression_ratio: Kaynak token / özet token. Daha yüksek, daha sıkı özet. 
+(Satır: full ~1271, ~1321 | 200 ~2433, ~2483)
 
 Bunlardan türetilen 5 kriter:
 
-coherence: Cümle ritmi + düşük tekrar + uygun cümle uzunluğu.
+coherence: Cümle ritmi + düşük tekrar + uygun cümle uzunluğu. 
+(Satır: full ~1297-1301, ~1346 | 200 ~2459-2463, ~2508)
 
-accuracy: Referans benzerliği + kaynağa bağlılık.
+accuracy: Referans benzerliği + kaynağa bağlılık. 
+(Satır: full ~1303, ~1347 | 200 ~2465, ~2509)
 
-clarity: Okunabilirlik + düşük tekrar.
+clarity: Okunabilirlik + düşük tekrar. 
+(Satır: full ~1304, ~1348 | 200 ~2466, ~2510)
 
-relevance: Referans recall + kaynaktan anlamlı kapsama.
+relevance: Referans recall + kaynaktan anlamlı kapsama. 
+(Satır: full ~1305, ~1349 | 200 ~2467, ~2511)
 
-efficiency: Hız + sıkıştırma dengesi.
+efficiency: Hız + sıkıştırma dengesi. 
+(Satır: full ~1310, ~1350 | 200 ~2472, ~2512)
 
-capability_overall: Bu 5 skorun ortalaması.
+capability_overall: Bu 5 skorun safe_mean ortalaması (boşsa 0.0). 
+(Satır: full ~1311, ~1351 | 200 ~2473, ~2513)
 
-quality_factuality: Kaynağa sadakat (coverage + fragment coverage).
+quality_factuality: Kaynağa sadakat (0.60*source_coverage + 0.40*fragment_coverage). 
+(Satır: full ~1313, ~1352 | 200 ~2475, ~2514)
 
-quality_completeness: Referans recall + referans uzunluğuna yakınlık.
+quality_completeness: 0.70*rouge1_recall + 0.30*length_alignment. 
+(Satır: full ~1314-1315, ~1353 | 200 ~2476-2477, ~2515)
