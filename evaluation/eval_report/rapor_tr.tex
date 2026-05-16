@@ -1,0 +1,350 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[shorthands=off,turkish]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\geometry{margin=2.4cm}
+\setlength{\parskip}{0.55em}
+\setlength{\parindent}{0pt}
+
+\title{XL-Sum Çok Dilli Özetleme Modellerinin Değerlendirme Raporu}
+\author{INF494 Projesi}
+\date{Mayıs 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Bu rapor, XL-Sum test kümesi üzerinde çok dilli özetleme modellerinin otomatik metriklerle değerlendirilmesini sunar. Değerlendirilen modeller \texttt{mbart50\_xlsum}, \texttt{mbart-xlsum-2} ve \texttt{mt5-xlsum} modelleridir. \texttt{mbart50\_xlsum} ve \texttt{mbart-xlsum-2} bu proje kapsamında eğitilen mBART tabanlı modellerdir. \texttt{mt5-xlsum} ise karşılaştırma amacıyla kullanılan, XL-Sum çalışmasından hazır alınmış mT5 tabanlı modeldir. Rapor, klasik örtüşme metriklerini ve proje kapsamında tanımlanan kompozit proxy metriklerini birlikte yorumlar.
+\end{abstract}
+
+\section{Giriş}
+
+Çok dilli haber özetleme modellerini değerlendirirken yalnızca referans özetle kelime örtüşmesine bakmak yeterli değildir. Bir modelin ürettiği özetin referansa yakın olması, kaynak metne bağlı kalması, tekrar etmemesi, okunabilir olması, yeterli kapsama sunması ve pratik kullanımda makul hızda çalışması birlikte ele alınmalıdır. Bu nedenle bu raporda ROUGE, BLEU ve METEOR-lite gibi klasik metriklerin yanında; tutarlılık, doğruluk, açıklık, alakalılık, verimlilik ve genel kabiliyet gibi kompozit proxy metrikleri de kullanılmıştır.
+
+Değerlendirme, \texttt{csebuetnlp/xlsum} veri kümesinin test bölümü üzerinde yapılmıştır. Tam değerlendirme koşusunda her model 11 dilde toplam 52.219 örnek üzerinde çalıştırılmıştır. Diller Arapça, İngilizce, İspanyolca, Fransızca, Hintçe, Japonca, Korece, Rusça, Türkçe, Vietnamca ve Basitleştirilmiş Çince olarak belirlenmiştir.
+
+Bu raporda mBART modelleri proje kapsamında eğitilen modeller olarak ele alınır. mT5 modeli ise doğrudan aynı eğitim sürecinin bir çıktısı değildir; karşılaştırma için hazır bir referans model olarak kullanılmıştır. Bu ayrım sonuçların yorumlanmasında önemlidir: mT5'in daha yüksek çıktığı yerler proje içi eğitim başarısızlığı olarak değil, güçlü bir hazır modelle yapılan kıyaslama olarak değerlendirilmelidir.
+
+\section{Değerlendirme Kurulumu}
+
+Değerlendirme çıktıları \texttt{evaluation/xlsum\_eval\_full} klasöründeki CSV, JSONL, XLSX ve görsel dosyalarından alınmıştır. Ana tablolar \texttt{model\_overall\_macro\_summary.csv} ve \texttt{model\_language\_summary.csv} dosyalarına dayanır. Rapor yalnızca değerlendirme koşusunda yer alan üç modeli kapsar; deney dışında bırakılan başka BART varyantları bu rapora dahil edilmemiştir.
+
+Metrikler üç seviyede kullanılmıştır. İlk seviye klasik referans örtüşme metrikleridir: ROUGE-1, ROUGE-2, ROUGE-L, BLEU ve METEOR-lite. İkinci seviye kaynak ve üretim davranışı metrikleridir: kaynak kapsaması, kaynak geri çağırımı, parça kapsaması, tekrar oranı, özet uzunluğu, sıkıştırma oranı ve gecikme süresi. Üçüncü seviye ise bu sinyallerden oluşturulan kompozit proxy metrikleridir.
+
+\section{Metrikler ve Kompozit Proxy Metrikler}
+
+\subsection{Klasik Metrikler}
+
+\textbf{ROUGE-1}, üretilen özet ile referans özet arasındaki unigram düzeyindeki örtüşmeyi ölçer. Bu metrik, özetin referanstaki temel kelime içeriğini ne kadar yakaladığını gösterir.
+
+\textbf{ROUGE-2}, bigram düzeyindeki örtüşmeyi ölçer. ROUGE-1'e göre daha katıdır; yalnızca doğru kelimelerin değil, kısa kelime dizilerinin de benzer olmasını bekler.
+
+\textbf{ROUGE-L}, en uzun ortak alt dizi üzerinden yapısal benzerlik ölçer. Cümledeki tam n-gram eşleşmesine göre daha esnektir ve özetin referansla genel sıralama uyumunu yakalar.
+
+\textbf{BLEU}, referansla n-gram eşleşmesini temel alır. Özetleme görevlerinde makine çevirisine göre daha düşük değerler üretmesi beklenir; çünkü geçerli bir özet referanstan farklı sözcüklerle de yazılabilir.
+
+\textbf{METEOR-lite}, token eşleşmesi ve parça cezası üzerinden referansla benzerliği ölçer. BLEU'ya göre daha esnek bir örtüşme sinyali sağlar.
+
+\subsection{Kaynak ve Üretim Davranışı Metrikleri}
+
+\textbf{\texttt{source\_coverage}}, üretilen özetteki kelime dağarcığının ne kadarının kaynak metinde bulunduğunu ölçer. Yüksek değer, özetin kaynağa daha bağlı olduğunu ve halüsinasyon riskinin daha düşük olabileceğini gösteren bir proxy olarak kullanılır.
+
+\textbf{\texttt{source\_recall}}, kaynak metindeki kelime dağarcığının ne kadarının özete taşındığını ölçer. Bu metrik, özetin kaynak içeriği ne kadar kapsadığını gösterir; ancak çok yüksek değer her zaman daha iyi değildir, çünkü özetin kısa ve seçici olması gerekir.
+
+\textbf{\texttt{fragment\_coverage}}, özetin kaynak metinde birebir bulunan metin parçalarıyla ne kadar kaplandığını ölçer. Kaynağa bağlılığı destekleyen bir sinyaldir.
+
+\textbf{\texttt{fragment\_density}}, kaynakla eşleşen parçaların ne kadar uzun bloklar halinde geldiğini ölçer. Yüksek değer, modelin daha ekstraktif davranabildiğini gösterebilir.
+
+\textbf{\texttt{repetition\_3gram}}, üretilen özette tekrar eden 3-gram oranıdır. Düşük değer daha akıcı ve daha az tekrarlı özet anlamına gelir.
+
+\textbf{\texttt{compression\_ratio}}, kaynak token sayısının özet token sayısına oranıdır. Yüksek değer daha kısa ve yoğun özet üretimine işaret eder.
+
+\textbf{\texttt{latency\_seconds}} ve \textbf{\texttt{latency\_per\_1k\_tokens}}, üretim süresini ve kaynak uzunluğuna göre normalize edilmiş üretim süresini ölçer. Bu metrikler pratik kullanım maliyetini değerlendirmek için kullanılmıştır.
+
+\subsection{Kompozit Proxy Metrikler}
+
+Kompozit metrikler, tek bir klasik skorun yakalayamadığı özetleme kalitesi boyutlarını yaklaşık olarak ölçmek için oluşturulmuştur. Bu skorlar insan değerlendirmesinin yerine geçmez; otomatik, tekrarlanabilir ve karşılaştırmalı analiz için kullanılan proxy değerlerdir.
+
+\begin{align}
+\text{coherence} = \text{clip}_{[0,1]}(&0.50 \cdot \text{clip}_{[0,1]}(1 - \text{sentence\_len\_std}/20) \nonumber\\
+&+ 0.30 \cdot (1 - \text{repetition\_3gram}) \nonumber\\
+&+ 0.20 \cdot \text{ideal\_sentence\_length\_score})
+\end{align}
+
+\textbf{Coherence}, özetin cümle akışını ve yapısal tutarlılığını ölçer. Cümle uzunluklarının aşırı dalgalanmaması, tekrar oranının düşük olması ve dil için makul cümle uzunluğuna yakınlık bu skoru yükseltir.
+
+\begin{align}
+\text{ref\_acc} &= \text{mean}(\text{ROUGE-L}, \text{BLEU}, \text{METEOR-lite})\\
+\text{accuracy} &= \text{clip}_{[0,1]}(0.70 \cdot \text{ref\_acc} + 0.30 \cdot \text{source\_coverage})
+\end{align}
+
+\textbf{Accuracy}, referans özetle benzerlik ve kaynak metne bağlılık sinyallerini birleştirir. Bu skor gerçek anlamda olgusal doğruluğu kanıtlamaz; ancak referansla örtüşen ve kaynaktan kopmayan özetleri ödüllendirir.
+
+\begin{equation}
+\text{clarity} = \text{clip}_{[0,1]}(0.70 \cdot \text{readability\_component} + 0.30 \cdot (1 - \text{repetition\_3gram}))
+\end{equation}
+
+\textbf{Clarity}, özetin okunabilirliğini ve tekrar etmeme davranışını ölçer. İngilizce için Flesch temelli okunabilirlik, diğer dillerde ise cümle uzunluğu heuristiği kullanılmıştır.
+
+\begin{equation}
+\text{relevance} = \text{clip}_{[0,1]}(0.70 \cdot \text{ROUGE-1 recall} + 0.30 \cdot \text{source\_recall})
+\end{equation}
+
+\textbf{Relevance}, özetin referansın ve kaynağın önemli içeriğini ne kadar taşıdığını ölçer. ROUGE-1 recall referansa göre içerik yakalamayı, source recall ise kaynak kapsamını temsil eder.
+
+\begin{align}
+\text{latency\_score} &= \frac{1}{1 + \text{latency\_per\_1k\_tokens}}\\
+\text{compression\_score} &= \text{clip}_{[0,1]}((\text{compression\_ratio} - 2)/18)\\
+\text{efficiency} &= \text{clip}_{[0,1]}(0.60 \cdot \text{latency\_score} + 0.40 \cdot \text{compression\_score})
+\end{align}
+
+\textbf{Efficiency}, modelin üretim hızı ile özetleme sıkılığını birlikte ölçer. Daha hızlı çalışan ve kaynak metni daha etkin sıkıştıran modeller daha yüksek skor alır.
+
+\begin{equation}
+\text{capability\_overall} = \text{mean}(\text{coherence}, \text{accuracy}, \text{clarity}, \text{relevance}, \text{efficiency})
+\end{equation}
+
+\textbf{Capability overall}, beş kompozit kabiliyet skorunun ortalamasıdır. Bu değer raporda genel model karşılaştırması için ana proxy skor olarak kullanılmıştır.
+
+\begin{equation}
+\text{quality\_factuality} = \text{clip}_{[0,1]}(0.60 \cdot \text{source\_coverage} + 0.40 \cdot \text{fragment\_coverage})
+\end{equation}
+
+\textbf{Quality factuality}, özetin kaynak metne bağlılığını ölçen yardımcı bir kalite proxy'sidir. Kaynak kapsaması ve kaynakta birebir bulunan parçalar birlikte değerlendirilir.
+
+\begin{align}
+\text{length\_alignment} &= \text{clip}_{[0,1]}(1 - |\text{summary\_len} - \text{ref\_len}| / \max(\text{ref\_len}, 1))\\
+\text{quality\_completeness} &= \text{clip}_{[0,1]}(0.70 \cdot \text{ROUGE-1 recall} + 0.30 \cdot \text{length\_alignment})
+\end{align}
+
+\textbf{Quality completeness}, referans içeriğin ne kadar yakalandığını ve üretilen özet uzunluğunun referansa ne kadar yakın olduğunu birleştirir.
+
+\section{Model Bazlı Değerlendirme}
+
+\subsection{\texttt{mt5-xlsum}}
+
+\texttt{mt5-xlsum}, bu çalışmada karşılaştırma amacıyla kullanılan hazır mT5 tabanlı XL-Sum modelidir. Tam değerlendirmede genel kabiliyet skoru 0.6631 ile en yüksek model olmuştur. Aynı zamanda ROUGE-L, BLEU ve METEOR-lite ortalamalarında da en yüksek değerlere ulaşmıştır. Bu sonuç, hazır mT5 modelinin referans özetlerle klasik örtüşme açısından güçlü bir karşılaştırma noktası sunduğunu gösterir.
+
+\begin{table}[H]
+\centering
+\caption{\texttt{mt5-xlsum} genel sonuçları}
+\begin{tabular}{lr}
+\toprule
+Metrik & Değer \\
+\midrule
+Capability overall & 0.6631 \\
+Coherence & 0.9750 \\
+Accuracy & 0.4301 \\
+Clarity & 0.9180 \\
+Relevance & 0.2662 \\
+Efficiency & 0.7260 \\
+ROUGE-L F1 & 0.3010 \\
+BLEU & 0.1310 \\
+METEOR-lite & 0.3195 \\
+Quality factuality & 0.8522 \\
+Quality completeness & 0.4489 \\
+Ortalama gecikme (sn) & 0.2552 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Dil bazında \texttt{mt5-xlsum}, Korece, Çince, Japonca, İspanyolca, Hintçe, Türkçe ve Vietnamca dillerinde en yüksek genel kabiliyet skorunu almıştır. En güçlü olduğu dil Korece olmuştur (0.7334). En düşük genel kabiliyet skoru İngilizcede görülmüştür (0.6231), ancak İngilizcede ROUGE-L ve BLEU değerleri yine diğer modellerden yüksektir. Bu durum, capability skorunun yalnızca referans örtüşmesine değil; açıklık, hız ve sıkıştırma gibi ek sinyallere de bağlı olduğunu gösterir.
+
+\subsection{\texttt{mbart50\_xlsum}}
+
+\texttt{mbart50\_xlsum}, proje kapsamında eğitilen mBART tabanlı modellerden biridir. Genel kabiliyet skoru 0.6578 ile ikinci sıradadır. \texttt{mt5-xlsum} modeline göre klasik referans örtüşme metriklerinde biraz geride kalmasına rağmen, verimlilik ve relevance tarafında güçlüdür.
+
+\begin{table}[H]
+\centering
+\caption{\texttt{mbart50\_xlsum} genel sonuçları}
+\begin{tabular}{lr}
+\toprule
+Metrik & Değer \\
+\midrule
+Capability overall & 0.6578 \\
+Coherence & 0.9622 \\
+Accuracy & 0.4211 \\
+Clarity & 0.8926 \\
+Relevance & 0.2701 \\
+Efficiency & 0.7431 \\
+ROUGE-L F1 & 0.2785 \\
+BLEU & 0.1202 \\
+METEOR-lite & 0.3157 \\
+Quality factuality & 0.8522 \\
+Quality completeness & 0.4525 \\
+Ortalama gecikme (sn) & 0.1917 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Dil bazında \texttt{mbart50\_xlsum}, Arapça, İngilizce, Fransızca ve Rusça dillerinde en yüksek capability overall skorunu almıştır. Özellikle İngilizce ve Fransızcada mT5'in klasik ROUGE-L ve BLEU değerleri daha yüksek olsa da \texttt{mbart50\_xlsum} genel kabiliyet skorunda öne geçmiştir. Bunun nedeni daha iyi verimlilik, daha dengeli proxy skorlar veya düşük gecikme gibi klasik metrik dışı sinyaller olabilir.
+
+\subsection{\texttt{mbart-xlsum-2}}
+
+\texttt{mbart-xlsum-2}, proje kapsamında eğitilen ikinci mBART tabanlı modeldir. Genel kabiliyet skoru 0.6570 ile \texttt{mbart50\_xlsum} modeline çok yakındır. Genel sıralamada üçüncü olsa da efficiency, relevance ve quality completeness metriklerinde güçlü sonuçlar vermiştir.
+
+\begin{table}[H]
+\centering
+\caption{\texttt{mbart-xlsum-2} genel sonuçları}
+\begin{tabular}{lr}
+\toprule
+Metrik & Değer \\
+\midrule
+Capability overall & 0.6570 \\
+Coherence & 0.9594 \\
+Accuracy & 0.4141 \\
+Clarity & 0.8950 \\
+Relevance & 0.2710 \\
+Efficiency & 0.7456 \\
+ROUGE-L F1 & 0.2792 \\
+BLEU & 0.1228 \\
+METEOR-lite & 0.3181 \\
+Quality factuality & 0.8249 \\
+Quality completeness & 0.4576 \\
+Ortalama gecikme (sn) & 0.1840 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\texttt{mbart-xlsum-2} hiçbir dilde capability overall açısından birinci sıraya çıkmamıştır; ancak birçok dilde \texttt{mbart50\_xlsum} ile çok yakın sonuçlar üretmiştir. En güçlü olduğu dil Korece (0.7229), en zayıf olduğu dil Türkçe (0.6181) olmuştur. Modelin en dikkat çekici yanı, genel tabloda en yüksek efficiency (0.7456) ve en yüksek quality completeness (0.4576) değerlerini almasıdır.
+
+\section{Dil Bazlı Model Karşılaştırması}
+
+Tablo \ref{tab:language-comparison}, her dil için üç modelin genel kabiliyet skorunu ve klasik örtüşme metriklerinden ROUGE-L, BLEU ve METEOR-lite değerlerini gösterir. Her dilde capability overall sıralaması farklılaşmaktadır; bu da çok dilli özetleme performansının tek bir genel ortalamayla tamamen açıklanamayacağını gösterir.
+
+\begin{longtable}{llrrrr}
+\caption{Dil bazlı model karşılaştırması}
+\label{tab:language-comparison}\\
+\toprule
+Dil & Model & Capability & ROUGE-L & BLEU & METEOR \\
+\midrule
+\endfirsthead
+\toprule
+Dil & Model & Capability & ROUGE-L & BLEU & METEOR \\
+\midrule
+\endhead
+ar & \texttt{mbart50\_xlsum} & 0.6403 & 0.2280 & 0.0726 & 0.2249 \\
+ar & \texttt{mt5-xlsum} & 0.6382 & 0.2477 & 0.0801 & 0.2359 \\
+ar & \texttt{mbart-xlsum-2} & 0.6370 & 0.2261 & 0.0743 & 0.2260 \\
+\midrule
+en & \texttt{mbart50\_xlsum} & 0.6255 & 0.2769 & 0.0957 & 0.3024 \\
+en & \texttt{mbart-xlsum-2} & 0.6233 & 0.2724 & 0.0930 & 0.2990 \\
+en & \texttt{mt5-xlsum} & 0.6231 & 0.2842 & 0.0974 & 0.2957 \\
+\midrule
+es & \texttt{mt5-xlsum} & 0.6725 & 0.2375 & 0.0742 & 0.2483 \\
+es & \texttt{mbart50\_xlsum} & 0.6699 & 0.2251 & 0.0675 & 0.2523 \\
+es & \texttt{mbart-xlsum-2} & 0.6679 & 0.2251 & 0.0703 & 0.2500 \\
+\midrule
+fr & \texttt{mbart50\_xlsum} & 0.6463 & 0.2504 & 0.0953 & 0.2678 \\
+fr & \texttt{mt5-xlsum} & 0.6458 & 0.2671 & 0.1018 & 0.2717 \\
+fr & \texttt{mbart-xlsum-2} & 0.6442 & 0.2500 & 0.0958 & 0.2681 \\
+\midrule
+hi & \texttt{mt5-xlsum} & 0.6544 & 0.4200 & 0.2173 & 0.5039 \\
+hi & \texttt{mbart-xlsum-2} & 0.6503 & 0.4089 & 0.2157 & 0.5293 \\
+hi & \texttt{mbart50\_xlsum} & 0.6480 & 0.4052 & 0.2122 & 0.5301 \\
+\midrule
+ja & \texttt{mt5-xlsum} & 0.6977 & 0.4059 & 0.2384 & 0.4631 \\
+ja & \texttt{mbart50\_xlsum} & 0.6871 & 0.3669 & 0.2133 & 0.4444 \\
+ja & \texttt{mbart-xlsum-2} & 0.6820 & 0.3689 & 0.2234 & 0.4557 \\
+\midrule
+ko & \texttt{mt5-xlsum} & 0.7334 & 0.3818 & 0.2039 & 0.4198 \\
+ko & \texttt{mbart50\_xlsum} & 0.7239 & 0.3429 & 0.1817 & 0.4038 \\
+ko & \texttt{mbart-xlsum-2} & 0.7229 & 0.3436 & 0.1886 & 0.4185 \\
+\midrule
+ru & \texttt{mbart50\_xlsum} & 0.6385 & 0.1996 & 0.0630 & 0.1932 \\
+ru & \texttt{mbart-xlsum-2} & 0.6357 & 0.2017 & 0.0645 & 0.1975 \\
+ru & \texttt{mt5-xlsum} & 0.6351 & 0.2125 & 0.0676 & 0.1994 \\
+\midrule
+tr & \texttt{mt5-xlsum} & 0.6278 & 0.2381 & 0.0813 & 0.2141 \\
+tr & \texttt{mbart50\_xlsum} & 0.6186 & 0.2065 & 0.0704 & 0.1991 \\
+tr & \texttt{mbart-xlsum-2} & 0.6181 & 0.2092 & 0.0728 & 0.2026 \\
+\midrule
+vi & \texttt{mt5-xlsum} & 0.6524 & 0.2490 & 0.0859 & 0.2635 \\
+vi & \texttt{mbart-xlsum-2} & 0.6481 & 0.2526 & 0.0960 & 0.2907 \\
+vi & \texttt{mbart50\_xlsum} & 0.6443 & 0.2507 & 0.0947 & 0.2895 \\
+\midrule
+zh & \texttt{mt5-xlsum} & 0.7134 & 0.3671 & 0.1930 & 0.3988 \\
+zh & \texttt{mbart-xlsum-2} & 0.6976 & 0.3128 & 0.1558 & 0.3613 \\
+zh & \texttt{mbart50\_xlsum} & 0.6939 & 0.3111 & 0.1552 & 0.3654 \\
+\bottomrule
+\end{longtable}
+
+Dil bazlı sonuçlarda \texttt{mt5-xlsum} 11 dilin 7'sinde capability overall açısından birinci sıradadır. \texttt{mbart50\_xlsum} ise 4 dilde birinci sıradadır. \texttt{mbart-xlsum-2} hiçbir dilde birinci sıraya çıkmasa da özellikle Vietnamca, Hintçe ve Çince gibi dillerde ikinci sırada ve mBART ailesi içinde rekabetçi bir konumdadır.
+
+Türkçe sonuçları ayrıca önemlidir. Türkçede \texttt{mt5-xlsum} 0.6278 capability overall, 0.2381 ROUGE-L, 0.0813 BLEU ve 0.2141 METEOR-lite değerleriyle öndedir. Projede eğitilen mBART modelleri Türkçede birbirine çok yakın sonuçlar üretmiştir: \texttt{mbart50\_xlsum} 0.6186, \texttt{mbart-xlsum-2} 0.6181 capability overall skoruna sahiptir. Bu fark, Türkçede hazır mT5 modelinin daha güçlü referans örtüşmesi ve genel proxy dengesi sağladığını göstermektedir.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{language_model_capability_heatmap.png}
+\caption{Dil ve model bazında capability overall ısı haritası}
+\end{figure}
+
+\section{Genel Model Karşılaştırması}
+
+Tablo \ref{tab:overall} tüm diller üzerindeki makro ortalama sonuçları gösterir. Genel kabiliyet sıralaması \texttt{mt5-xlsum}, \texttt{mbart50\_xlsum}, \texttt{mbart-xlsum-2} şeklindedir. Ancak farklar küçüktür: \texttt{mt5-xlsum} ile \texttt{mbart50\_xlsum} arasındaki capability overall farkı yaklaşık 0.0053, \texttt{mbart50\_xlsum} ile \texttt{mbart-xlsum-2} arasındaki fark ise yaklaşık 0.0008'dir.
+
+\begin{table}[H]
+\centering
+\caption{Genel model karşılaştırması}
+\label{tab:overall}
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & Overall & Coh. & Acc. & Clar. & Rel. & Eff. \\
+\midrule
+\texttt{mt5-xlsum} & 0.6631 & 0.9750 & 0.4301 & 0.9180 & 0.2662 & 0.7260 \\
+\texttt{mbart50\_xlsum} & 0.6578 & 0.9622 & 0.4211 & 0.8926 & 0.2701 & 0.7431 \\
+\texttt{mbart-xlsum-2} & 0.6570 & 0.9594 & 0.4141 & 0.8950 & 0.2710 & 0.7456 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Klasik ve yardımcı kalite metrikleri}
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & R-L & BLEU & METEOR & Fact. & Comp. & Latency \\
+\midrule
+\texttt{mt5-xlsum} & 0.3010 & 0.1310 & 0.3195 & 0.8522 & 0.4489 & 0.2552 \\
+\texttt{mbart50\_xlsum} & 0.2785 & 0.1202 & 0.3157 & 0.8522 & 0.4525 & 0.1917 \\
+\texttt{mbart-xlsum-2} & 0.2792 & 0.1228 & 0.3181 & 0.8249 & 0.4576 & 0.1840 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\texttt{mt5-xlsum}, klasik referans örtüşme metriklerinde en güçlü modeldir: ROUGE-L 0.3010, BLEU 0.1310 ve METEOR-lite 0.3195 değerleriyle öndedir. Ayrıca coherence, accuracy ve clarity skorlarında da birinci sıradadır. Buna karşılık proje kapsamında eğitilen mBART modelleri relevance ve efficiency açısından daha güçlüdür. \texttt{mbart-xlsum-2}, 0.7456 efficiency ve 0.4576 quality completeness skorlarıyla bu iki metrikte en iyi modeldir. \texttt{mbart50\_xlsum} ise factuality proxy'sinde mT5 ile neredeyse aynı düzeydedir.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{overall_capability_by_model.png}
+\caption{Model bazında genel kabiliyet karşılaştırması}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{classical_metrics_by_model.png}
+\caption{Model bazında klasik metrik karşılaştırması}
+\end{figure}
+
+\section{Sonuç}
+
+Tam XL-Sum değerlendirmesine göre hazır \texttt{mt5-xlsum} modeli genel kabiliyet ve klasik referans örtüşme metriklerinde en güçlü modeldir. Bu sonuç, mT5'in güçlü bir karşılaştırma modeli olduğunu ve özellikle ROUGE-L, BLEU, METEOR-lite, coherence, accuracy ve clarity açısından yüksek performans verdiğini göstermektedir.
+
+Proje kapsamında eğitilen mBART modelleri ise hazır mT5 modeline çok yakın genel skorlar üretmiştir. \texttt{mbart50\_xlsum}, capability overall açısından mBART modelleri içinde birinci, tüm modeller içinde ikinci sıradadır. \texttt{mbart-xlsum-2} genel skorda çok az farkla üçüncü sırada kalsa da efficiency, relevance ve completeness tarafında güçlü sonuçlar vermiştir.
+
+Dil bazlı analiz, modellerin performansının dile göre değiştiğini göstermektedir. \texttt{mt5-xlsum} özellikle Korece, Çince, Japonca, Türkçe, Hintçe, İspanyolca ve Vietnamcada öne çıkarken; \texttt{mbart50\_xlsum} Arapça, İngilizce, Fransızca ve Rusçada en yüksek capability overall değerini almıştır. Bu nedenle genel ortalama tek başına yeterli değildir; model seçimi hedef dile ve öncelikli kalite ölçütüne göre yapılmalıdır.
+
+Genel olarak, bu rapordaki sonuçlar hazır mT5 modelinin güçlü bir üst referans olduğunu, proje kapsamında eğitilen mBART modellerinin ise rekabetçi ve özellikle verimlilik odaklı kullanım senaryolarında anlamlı alternatifler sunduğunu göstermektedir. Bundan sonraki aşamada insan değerlendirmesi, hata türü analizi ve Türkçe odaklı daha ayrıntılı nitel inceleme ile otomatik proxy metriklerin yorumları güçlendirilebilir.
+
+\end{document}
