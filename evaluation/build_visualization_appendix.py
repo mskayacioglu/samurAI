@@ -16,7 +16,7 @@ CATEGORY_TITLES = {
     "detailed_distributions": "Ayrıntılı Metrik Dağılımları",
     "tradeoffs_scatter": "Trade-off ve Yoğunluk Grafikleri",
     "sample_pairwise": "Sample Bazlı Model Karşılaştırmaları",
-    "interactive": "İnteraktif HTML Görselleri",
+    "interactive": "İnteraktif Görsel Ekran Görüntüleri",
     "cross_run": "Koşular Arası Stabilite Görselleri",
 }
 
@@ -44,9 +44,9 @@ CATEGORY_DESCRIPTIONS = {
         "türetilmiştir; kazanma oranları ve model fark dağılımlarını gösterir."
     ),
     "interactive": (
-        "Bu bölüm PNG olarak gömülemeyen interaktif HTML görsellere bağlantılar verir. "
-        "HTML dosyaları tarayıcıda açıldığında hover, zoom ve filtreleme gibi etkileşimli "
-        "inceleme olanakları sunar."
+        "Bu bölüm interaktif HTML görsellerin rapora eklenebilmesi için alınmış ekran "
+        "görüntülerini içerir. Böylece rapor PDF olarak okunurken interaktif grafiklerin "
+        "son hali de statik görsel olarak incelenebilir."
     ),
     "cross_run": (
         "Bu görseller 200 örnek koşusu ile tam koşu arasındaki stabiliteyi gösterir; "
@@ -117,7 +117,12 @@ def normalize_text(text: str) -> str:
         "Language": "Dil",
         "language": "dil",
         "Interactive": "İnteraktif",
+        "Interaktif": "İnteraktif",
         "interactive": "interaktif",
+        "parallel coordinates": "paralel koordinatlar",
+        "screenshot": "ekran görüntüsü",
+        "distribution": "dağılım",
+        "distributions": "dağılımlar",
         "Overall": "Genel",
         "overall": "genel",
         "macro summary": "makro özet",
@@ -140,6 +145,8 @@ def normalize_text(text: str) -> str:
         "gosterir": "gösterir",
         "gorunumu": "görünümü",
         "gorunumleriyle": "görünümleriyle",
+        "gorunumunun": "görünümünün",
+        "goruntusu": "görüntüsü",
         "gorseller": "görseller",
         "gorsel": "görsel",
         "karsilastirir": "karşılaştırır",
@@ -189,7 +196,8 @@ def normalize_text(text: str) -> str:
         "icin": "için",
         "kullanilir": "kullanılır",
         "metrik": "metrik",
-        "run": "koşu",
+        "metriks": "metrikler",
+        "tek basina": "tek başına",
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
@@ -232,8 +240,8 @@ def write_appendix(rows: list[dict[str, str]], output: Path, report_dir: Path) -
         "",
         (
             "Bu ek, \\texttt{evaluation/eval\\_visualizations} klasöründe üretilen "
-            "görsellerin tamamını rapora ekler. Statik PNG görseller PDF içine gömülmüştür; "
-            "interaktif HTML görseller ise tıklanabilir bağlantı olarak verilmiştir. "
+            "görsellerin tamamını rapora ekler. PNG görseller PDF içine gömülmüştür; "
+            "interaktif grafikler ayrıca ekran görüntüsü olarak dahil edilmiştir. "
             "Her görselin açıklaması \\texttt{visualization\\_manifest.csv} dosyasındaki "
             "başlık ve açıklama alanlarından üretilmiştir."
         ),

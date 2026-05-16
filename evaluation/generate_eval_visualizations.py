@@ -189,6 +189,19 @@ SCATTER_PAIRS = [
     ("summary_tokens", "quality_completeness", "Ozet uzunlugu ve completeness proxy"),
 ]
 
+INTERACTIVE_SCREENSHOTS = [
+    (
+        "parallel_cordinates.png",
+        "İnteraktif paralel koordinatlar ekran görüntüsü",
+        "Dil-model satırlarını metrik eksenlerinde gösteren interaktif paralel koordinat ekran görüntüsü.",
+    ),
+    (
+        "rougel-vs-cap.png",
+        "İnteraktif ROUGE-L ve genel kabiliyet scatter ekran görüntüsü",
+        "Dil-model satırlarını ROUGE-L ve genel kabiliyet eksenlerinde gösteren interaktif scatter ekran görüntüsü.",
+    ),
+]
+
 PAIRWISE_METRICS = [
     "capability_overall",
     "rougeL_fmeasure",
@@ -358,6 +371,21 @@ def add_value_labels(ax: plt.Axes, fmt: str = "{:.3f}", rotation: int = 0) -> No
             continue
 
 
+def zero_based_upper(values: pd.Series | np.ndarray, metric: str | None = None) -> float:
+    series = pd.Series(values).replace([np.inf, -np.inf], np.nan).dropna()
+    if series.empty:
+        return 1.0
+    vmax = float(series.max())
+    if vmax <= 1.0 and (metric is None or "tokens" not in metric):
+        return 1.0
+    return vmax * 1.08 if vmax > 0 else 1.0
+
+
+def set_zero_based_axes(ax: plt.Axes, x_values: pd.Series | np.ndarray, y_values: pd.Series | np.ndarray, x_metric: str | None = None, y_metric: str | None = None) -> None:
+    ax.set_xlim(left=0, right=zero_based_upper(x_values, x_metric))
+    ax.set_ylim(bottom=0, top=zero_based_upper(y_values, y_metric))
+
+
 def plot_overall_grouped_bars(run: EvalRun, overall: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
     for group_name, metrics in OVERALL_GROUPS.items():
         present = [m for m in metrics if m in overall.columns]
@@ -467,13 +495,15 @@ def plot_overall_tradeoffs(run: EvalRun, overall: pd.DataFrame, out_dir: Path, m
         if x not in overall.columns or y not in overall.columns:
             continue
         fig, ax = plt.subplots(figsize=(8, 6))
-        for _, row in overall.iterrows():
+        for idx, (_, row) in enumerate(overall.iterrows()):
             model = str(row["model"])
             ax.scatter(row[x], row[y], s=220, color=MODEL_PALETTE.get(model), edgecolor="white", linewidth=1.2)
-            ax.annotate(model, (row[x], row[y]), xytext=(8, 8), textcoords="offset points", fontsize=9)
+            offset = [(8, 8), (8, -14), (-74, 8)][idx % 3]
+            ax.annotate(model, (row[x], row[y]), xytext=offset, textcoords="offset points", fontsize=9)
         ax.set_title(f"{run.name}: {title}", fontsize=14, weight="bold")
         ax.set_xlabel(metric_label(x))
         ax.set_ylabel(metric_label(y))
+        set_zero_based_axes(ax, overall[x], overall[y], x, y)
         ax.grid(alpha=0.25)
         save_figure(
             fig,
@@ -675,28 +705,41 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
         "repetition_3gram",
     ]
     for metric in [m for m in core_metrics if m in metrics]:
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
-        sns.violinplot(data=sample, x="model", y=metric, order=model_order(sample["model"].astype(str)), palette=MODEL_PALETTE, inner="quartile", cut=0, ax=axes[0])
-        axes[0].set_title("Model dagilimi", weight="bold")
-        axes[0].set_xlabel("")
-        axes[0].set_ylabel(metric_label(metric))
-        axes[0].tick_params(axis="x", rotation=15)
-        sns.boxplot(data=sample, x="language", y=metric, hue="model", palette=MODEL_PALETTE, fliersize=0.5, linewidth=0.8, ax=axes[1])
-        axes[1].set_title("Dil x model dagilimi", weight="bold")
-        axes[1].set_xlabel("Dil")
-        axes[1].set_ylabel("")
-        axes[1].tick_params(axis="x", rotation=35)
-        axes[1].legend(title="Model", fontsize=8)
-        fig.suptitle(f"{run.name}: {metric_label(metric)} dagilimlari", fontsize=15, weight="bold")
+        fig, ax = plt.subplots(figsize=(8.5, 5.8))
+        sns.violinplot(data=sample, x="model", y=metric, order=model_order(sample["model"].astype(str)), palette=MODEL_PALETTE, inner="quartile", cut=0, ax=ax)
+        ax.set_title(f"{run.name}: {metric_label(metric)} model dagilimi", fontsize=14, weight="bold")
+        ax.set_xlabel("Model")
+        ax.set_ylabel(metric_label(metric))
+        ax.tick_params(axis="x", rotation=15)
+        ax.grid(axis="y", alpha=0.25)
         fig.tight_layout()
         save_figure(
             fig,
-            out_dir / run.name / "03_detailed_distributions" / f"distribution_{clean_name(metric)}.png",
+            out_dir / run.name / "03_detailed_distributions" / f"distribution_model_{clean_name(metric)}.png",
             manifest,
             run.name,
             "detailed_distributions",
-            f"{metric_label(metric)} distributions",
-            "Detailed metrics seviyesinde model ve dil bazli dagilimlar.",
+            f"{metric_label(metric)} model distribution",
+            "Detailed metrics seviyesinde model bazli dagilimi tek basina gosterir.",
+        )
+
+        fig, ax = plt.subplots(figsize=(13, 6.6))
+        sns.boxplot(data=sample, x="language", y=metric, hue="model", palette=MODEL_PALETTE, fliersize=0.45, linewidth=0.8, ax=ax)
+        ax.set_title(f"{run.name}: {metric_label(metric)} dil x model dagilimi", fontsize=14, weight="bold")
+        ax.set_xlabel("Dil")
+        ax.set_ylabel(metric_label(metric))
+        ax.tick_params(axis="x", rotation=0)
+        ax.legend(title="Model", fontsize=8, loc="best")
+        ax.grid(axis="y", alpha=0.25)
+        fig.tight_layout()
+        save_figure(
+            fig,
+            out_dir / run.name / "03_detailed_distributions" / f"distribution_language_model_{clean_name(metric)}.png",
+            manifest,
+            run.name,
+            "detailed_distributions",
+            f"{metric_label(metric)} language-model distribution",
+            "Detailed metrics seviyesinde dil ve model bazli dagilimi tek basina gosterir.",
         )
 
         fig, ax = plt.subplots(figsize=(10, 5.5))
@@ -781,7 +824,7 @@ def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, m
     for x, y, title in SCATTER_PAIRS:
         if x not in sample.columns or y not in sample.columns:
             continue
-        fig, axes = plt.subplots(1, 2, figsize=(15, 5.8))
+        fig, axes = plt.subplots(2, 1, figsize=(9.5, 12.5))
         sns.scatterplot(
             data=sample,
             x=x,
@@ -797,6 +840,7 @@ def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, m
         axes[0].set_title("Model renkli scatter", weight="bold")
         axes[0].set_xlabel(metric_label(x))
         axes[0].set_ylabel(metric_label(y))
+        set_zero_based_axes(axes[0], sample[x], sample[y], x, y)
         axes[0].grid(alpha=0.2)
         axes[0].legend(title="Model", fontsize=8)
 
@@ -804,9 +848,10 @@ def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, m
         axes[1].set_title("Yogunluk hexbin", weight="bold")
         axes[1].set_xlabel(metric_label(x))
         axes[1].set_ylabel(metric_label(y))
+        set_zero_based_axes(axes[1], sample[x], sample[y], x, y)
         fig.colorbar(hb, ax=axes[1], label="log(count)")
         fig.suptitle(f"{run.name}: {title}", fontsize=15, weight="bold")
-        fig.tight_layout()
+        fig.tight_layout(rect=(0, 0, 1, 0.97))
         save_figure(
             fig,
             out_dir / run.name / "04_tradeoffs_scatter" / f"scatter_hexbin_{clean_name(x)}__{clean_name(y)}.png",
@@ -947,49 +992,16 @@ def plot_pairwise_deltas(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, ma
     )
 
 
-def plot_interactive_language(run: EvalRun, language: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
-    if px is None:
-        return
-    metrics = [m for m in ["capability_overall_mean", "rougeL_fmeasure_mean", "bleu_mean", "meteor_lite_mean", "quality_factuality_mean", "latency_seconds_mean"] if m in language.columns]
-    if not metrics:
-        return
-    fig = px.parallel_coordinates(
-        language,
-        dimensions=metrics,
-        color="capability_overall_mean" if "capability_overall_mean" in language.columns else metrics[0],
-        labels={m: metric_label(m) for m in metrics},
-        title=f"{run.name}: model-language parallel coordinates",
-    )
-    write_html(
-        out_dir / run.name / "06_interactive" / "language_parallel_coordinates.html",
-        fig.to_html(include_plotlyjs="cdn"),
-        manifest,
-        run.name,
-        "interactive",
-        "Language parallel coordinates",
-        "Dil-model satirlarini interaktif paralel koordinat grafigiyle gosterir.",
-    )
-
-    fig = px.scatter(
-        language,
-        x="rougeL_fmeasure_mean",
-        y="capability_overall_mean",
-        color="model",
-        size="samples" if "samples" in language.columns else None,
-        symbol="language",
-        hover_data=["language", "model", "bleu_mean", "meteor_lite_mean"],
-        title=f"{run.name}: ROUGE-L vs capability overall",
-        color_discrete_map=MODEL_PALETTE,
-    )
-    write_html(
-        out_dir / run.name / "06_interactive" / "language_rougel_vs_capability_scatter.html",
-        fig.to_html(include_plotlyjs="cdn"),
-        manifest,
-        run.name,
-        "interactive",
-        "Interactive ROUGE-L vs capability scatter",
-        "Dil-model satirlarini ornek sayisina gore olceklenmis interaktif scatter olarak gosterir.",
-    )
+def add_interactive_screenshots(run: EvalRun, out_dir: Path, manifest: Manifest, screenshot_dir: Path) -> None:
+    target_dir = ensure_dir(out_dir / run.name / "06_interactive")
+    for filename, title, description in INTERACTIVE_SCREENSHOTS:
+        src = screenshot_dir / filename
+        if not src.exists():
+            continue
+        dst = target_dir / filename
+        if src.resolve() != dst.resolve():
+            shutil.copy2(src, dst)
+        manifest.add(run.name, "interactive", dst, title, description)
 
 
 def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> None:
@@ -1083,7 +1095,7 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
         )
 
 
-def generate_for_run(run: EvalRun, out_dir: Path, manifest: Manifest, sample_size: int) -> None:
+def generate_for_run(run: EvalRun, out_dir: Path, manifest: Manifest, sample_size: int, screenshot_dir: Path) -> None:
     print(f"[run] {run.name}", flush=True)
     overall = read_overall(run)
     language = read_language(run)
@@ -1099,7 +1111,7 @@ def generate_for_run(run: EvalRun, out_dir: Path, manifest: Manifest, sample_siz
     plot_language_rank_and_winners(run, language, out_dir, manifest)
     plot_language_metric_small_multiples(run, language, out_dir, manifest)
     plot_samples_by_language(run, language, out_dir, manifest)
-    plot_interactive_language(run, language, out_dir, manifest)
+    add_interactive_screenshots(run, out_dir, manifest, screenshot_dir)
 
     detailed = read_detailed(run)
     plot_detailed_distributions(run, detailed, out_dir, manifest, sample_size)
@@ -1117,6 +1129,7 @@ def main() -> None:
     parser.add_argument("--sample-size", type=int, default=60000, help="Maximum rows sampled for heavy detailed plots.")
     parser.add_argument("--run-names", nargs="*", default=None, help="Optional run directory names to include, e.g. xlsum_eval_full.")
     parser.add_argument("--clean-output", action="store_true", help="Delete the output directory before regenerating visuals.")
+    parser.add_argument("--interactive-screenshot-dir", type=Path, default=Path("evaluation/interactive_screenshots"), help="Directory containing PNG screenshots of interactive figures.")
     args = parser.parse_args()
 
     sns.set_theme(style="whitegrid", context="notebook")
@@ -1133,7 +1146,7 @@ def main() -> None:
 
     manifest = Manifest()
     for run in runs:
-        generate_for_run(run, args.output_dir, manifest, args.sample_size)
+        generate_for_run(run, args.output_dir, manifest, args.sample_size, args.interactive_screenshot_dir)
 
     plot_cross_run(runs, args.output_dir, manifest)
     manifest.write(args.output_dir)
