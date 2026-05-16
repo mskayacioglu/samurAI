@@ -16,6 +16,7 @@ import argparse
 import math
 import os
 import re
+import shutil
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -1114,12 +1115,19 @@ def main() -> None:
     parser.add_argument("--input-root", type=Path, default=Path("evaluation"), help="Evaluation root directory.")
     parser.add_argument("--output-dir", type=Path, default=Path("evaluation/eval_visualizations"), help="Output directory for generated visuals.")
     parser.add_argument("--sample-size", type=int, default=60000, help="Maximum rows sampled for heavy detailed plots.")
+    parser.add_argument("--run-names", nargs="*", default=None, help="Optional run directory names to include, e.g. xlsum_eval_full.")
+    parser.add_argument("--clean-output", action="store_true", help="Delete the output directory before regenerating visuals.")
     args = parser.parse_args()
 
     sns.set_theme(style="whitegrid", context="notebook")
+    if args.clean_output and args.output_dir.exists():
+        shutil.rmtree(args.output_dir)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     runs = discover_runs(args.input_root)
+    if args.run_names:
+        requested = set(args.run_names)
+        runs = [run for run in runs if run.name in requested]
     if not runs:
         raise SystemExit(f"No evaluation runs found under {args.input_root}")
 
