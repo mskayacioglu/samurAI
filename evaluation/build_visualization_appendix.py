@@ -11,54 +11,50 @@ from pathlib import Path
 
 
 CATEGORY_TITLES = {
-    "overall": "Genel Model Görselleri",
-    "language_summary": "Dil Bazlı Özet Görselleri",
-    "detailed_distributions": "Ayrıntılı Metrik Dağılımları",
-    "tradeoffs_scatter": "Trade-off ve Yoğunluk Grafikleri",
-    "sample_pairwise": "Sample Bazlı Model Karşılaştırmaları",
-    "interactive": "İnteraktif Görsel Ekran Görüntüleri",
-    "cross_run": "Koşular Arası Stabilite Görselleri",
+    "overall": "Visualisations globales des modèles",
+    "language_summary": "Visualisations résumées par langue",
+    "detailed_distributions": "Distributions détaillées des métriques",
+    "tradeoffs_scatter": "Graphiques de compromis et de densité",
+    "sample_pairwise": "Comparaisons des modèles par échantillon",
+    "interactive": "Captures d'écran des visualisations interactives",
+    "cross_run": "Visualisations de stabilité entre exécutions",
 }
 
 CATEGORY_DESCRIPTIONS = {
     "overall": (
-        "Bu görseller model seviyesindeki makro ortalamaları, metrik sıralamalarını, "
-        "radar profillerini ve temel performans trade-offlarını gösterir."
+        "Ces visualisations montrent les moyennes macro au niveau des modèles, "
+        "les classements par métrique, les profils radar et les principaux compromis de performance."
     ),
     "language_summary": (
-        "Bu görseller dil-model özet tablolarından türetilmiştir; her dilde hangi "
-        "modelin hangi metrikte öne çıktığını ve modeller arasındaki dil bazlı farkları "
-        "okumayı kolaylaştırır."
+        "Ces visualisations sont dérivées des tableaux récapitulatifs langue-modèle; "
+        "elles facilitent la lecture des modèles dominants par métrique et des écarts entre modèles selon les langues."
     ),
     "detailed_distributions": (
-        "Bu görseller detailed_metrics satırlarını kullanır; sample seviyesinde dağılım, "
-        "kümülatif dağılım ve metrik korelasyonlarını gösterir."
+        "Ces visualisations utilisent les lignes de \\texttt{detailed\\_metrics}; "
+        "elles montrent les distributions par échantillon, les distributions cumulatives et les corrélations des métriques."
     ),
     "tradeoffs_scatter": (
-        "Bu görseller iki metrik arasındaki ilişkiyi scatter ve hexbin yoğunluk "
-        "görünümleriyle inceler; uzunluk, hız, kalite ve kaynak bağlılığı arasındaki "
-        "dengeyi yorumlamak için kullanılır."
+        "Ces visualisations examinent la relation entre deux métriques avec des nuages de points "
+        "et des vues de densité hexbin; elles servent à interpréter l'équilibre entre longueur, vitesse, qualité et ancrage à la source."
     ),
     "sample_pairwise": (
-        "Bu görseller aynı sample üzerinde modellerin doğrudan karşılaştırılmasından "
-        "türetilmiştir; kazanma oranları ve model fark dağılımlarını gösterir."
+        "Ces visualisations proviennent de comparaisons directes des modèles sur les mêmes échantillons; "
+        "elles montrent les taux de victoire et les distributions des écarts entre modèles."
     ),
     "interactive": (
-        "Bu bölüm interaktif HTML görsellerin rapora eklenebilmesi için alınmış ekran "
-        "görüntülerini içerir. Böylece rapor PDF olarak okunurken interaktif grafiklerin "
-        "son hali de statik görsel olarak incelenebilir."
+        "Cette section contient les captures d'écran prises pour intégrer les visualisations HTML interactives au rapport. "
+        "Ainsi, la version statique finale des graphiques interactifs peut être consultée dans le PDF."
     ),
     "cross_run": (
-        "Bu görseller 200 örnek koşusu ile tam koşu arasındaki stabiliteyi gösterir; "
-        "metriklerin ve dil-model skorlarının koşu boyutu değiştiğinde ne kadar oynadığını "
-        "incelemek için kullanılır."
+        "Ces visualisations montrent la stabilité entre l'exécution sur 200 échantillons et l'exécution complète; "
+        "elles permettent d'examiner la variation des métriques et des scores langue-modèle lorsque la taille d'exécution change."
     ),
 }
 
 RUN_TITLES = {
-    "xlsum_eval_200": "XL-Sum 200 Örnek Koşusu",
-    "xlsum_eval_full": "XL-Sum Tam Değerlendirme Koşusu",
-    "cross_run": "Koşular Arası Karşılaştırma",
+    "xlsum_eval_200": "Exécution XL-Sum sur 200 échantillons",
+    "xlsum_eval_full": "Exécution complète d'évaluation XL-Sum",
+    "cross_run": "Comparaison entre exécutions",
 }
 
 
@@ -87,122 +83,6 @@ def sentence_case(text: str) -> str:
 
 def normalize_text(text: str) -> str:
     text = text.replace("_", " ")
-    text = text.replace("heatmap", "isi haritasi")
-    text = text.replace("grouped bar", "gruplanmis cubuk grafigi")
-    text = text.replace("radar", "radar grafigi")
-    text = text.replace("scatter", "scatter grafigi")
-    text = text.replace("pairplot", "ikili metrik matrisi")
-    text = text.replace("win-rate", "kazanma orani")
-    text = text.replace("win rate", "kazanma orani")
-    text = text.replace("delta", "fark")
-    text = text.replace("metric", "metrik")
-    text = text.replace("metrics", "metrikler")
-    text = text.replace("overall", "genel")
-    text = text.replace("language", "dil")
-    text = text.replace("model", "model")
-    text = text.replace("sample", "sample")
-    text = text.replace("Detailed", "Ayrintili")
-    text = text.replace("Core", "Cekirdek")
-    replacements = {
-        "Classical": "Klasik",
-        "classical": "klasik",
-        "Capability": "Kabiliyet",
-        "capability": "kabiliyet",
-        "Quality": "Kalite",
-        "quality": "kalite",
-        "Behavior": "Davranış",
-        "behavior": "davranış",
-        "Efficiency": "Verimlilik",
-        "efficiency": "verimlilik",
-        "Language": "Dil",
-        "language": "dil",
-        "Interactive": "İnteraktif",
-        "Interaktif": "İnteraktif",
-        "interactive": "interaktif",
-        "parallel coordinates": "paralel koordinatlar",
-        "screenshot": "ekran görüntüsü",
-        "distribution": "dağılım",
-        "distributions": "dağılımlar",
-        "Overall": "Genel",
-        "overall": "genel",
-        "macro summary": "makro özet",
-        "grounding": "kaynak bağlılığı",
-        "detailed": "ayrıntılı",
-        "core": "çekirdek",
-        "Sikistirma": "Sıkıştırma",
-        "sikistirma": "sıkıştırma",
-        "Tum": "Tüm",
-        "Ayrintili": "Ayrıntılı",
-        "Cekirdek": "Çekirdek",
-        "isi": "ısı",
-        "haritasi": "haritası",
-        "gruplanmis": "gruplanmış",
-        "cubuk": "çubuk",
-        "grafigi": "grafiği",
-        "uzerinden": "üzerinden",
-        "bazli": "bazlı",
-        "siralamalarini": "sıralamalarını",
-        "gosterir": "gösterir",
-        "gorunumu": "görünümü",
-        "gorunumleriyle": "görünümleriyle",
-        "gorunumunun": "görünümünün",
-        "goruntusu": "görüntüsü",
-        "gorseller": "görseller",
-        "gorsel": "görsel",
-        "karsilastirir": "karşılaştırır",
-        "karsilastirma": "karşılaştırma",
-        "dagilimlari": "dağılımları",
-        "dagilimi": "dağılımı",
-        "dagilim": "dağılım",
-        "kumulatif": "kümülatif",
-        "olceklenmis": "ölçeklenmiş",
-        "ornek": "örnek",
-        "kosusu": "koşusu",
-        "kosular": "koşular",
-        "arasi": "arası",
-        "farklari": "farkları",
-        "oranlari": "oranları",
-        "baglantilari": "bağlantıları",
-        "tiklanabilir": "tıklanabilir",
-        "gomulemeyen": "gömülemeyen",
-        "gomulmustur": "gömülmüştür",
-        "verilmistir": "verilmiştir",
-        "uretilmistir": "üretilmiştir",
-        "uretilen": "üretilen",
-        "baslik": "başlık",
-        "aciklama": "açıklama",
-        "klasorunde": "klasöründe",
-        "tamamini": "tamamını",
-        "donusturulmus": "dönüştürülmüş",
-        "satirlarini": "satırlarını",
-        "satirlarini": "satırlarını",
-        "satırlarini": "satırlarını",
-        "degerlendirme": "değerlendirme",
-        "gore": "göre",
-        "gorunur": "görünür",
-        "karsilastirilmasindan": "karşılaştırılmasından",
-        "turetilmistir": "türetilmiştir",
-        "dogrudan": "doğrudan",
-        "ayni": "aynı",
-        "seviyesinde": "seviyesinde",
-        "arasindaki": "arasındaki",
-        "iliskisini": "ilişkisini",
-        "iliskiyi": "ilişkiyi",
-        "yogunluk": "yoğunluk",
-        "hiz": "hız",
-        "bagliligi": "bağlılığı",
-        "dengeyi": "dengeyi",
-        "yorumlamak": "yorumlamak",
-        "icin": "için",
-        "kullanilir": "kullanılır",
-        "metrik": "metrik",
-        "metriks": "metrikler",
-        "tek basina": "tek başına",
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    text = text.replace("radar grafiği grafikte", "radar grafiğinde")
-    text = text.replace("scatter grafiği olarak", "scatter olarak")
     return sentence_case(text)
 
 
@@ -236,14 +116,14 @@ def write_appendix(rows: list[dict[str, str]], output: Path, report_dir: Path) -
     groups = grouped_rows(rows)
     lines: list[str] = [
         "% Auto-generated by evaluation/build_visualization_appendix.py",
-        r"\section{Görselleştirme Eki}",
+        r"\section{Annexe des visualisations}",
         "",
         (
-            "Bu ek, \\texttt{evaluation/eval\\_visualizations} klasöründe üretilen "
-            "görsellerin tamamını rapora ekler. PNG görseller PDF içine gömülmüştür; "
-            "interaktif grafikler ayrıca ekran görüntüsü olarak dahil edilmiştir. "
-            "Her görselin açıklaması \\texttt{visualization\\_manifest.csv} dosyasındaki "
-            "başlık ve açıklama alanlarından üretilmiştir."
+            "Cette annexe ajoute au rapport l'ensemble des visualisations produites dans le dossier "
+            "\\texttt{evaluation/eval\\_visualizations}. Les images PNG sont intégrées au PDF; "
+            "les graphiques interactifs sont également inclus sous forme de captures d'écran. "
+            "La légende de chaque visualisation est produite à partir des champs titre et description "
+            "du fichier \\texttt{visualization\\_manifest.csv}."
         ),
         "",
     ]
@@ -276,7 +156,7 @@ def write_appendix(rows: list[dict[str, str]], output: Path, report_dir: Path) -
 
             if html_items:
                 html_count += len(html_items)
-                lines.extend([r"\paragraph{İnteraktif HTML bağlantıları}", r"\begin{itemize}"])
+                lines.extend([r"\paragraph{Liens HTML interactifs}", r"\begin{itemize}"])
                 for row in html_items:
                     rel = relpath_for_latex(row["path"], report_dir)
                     text = caption(row["title"], row["description"])

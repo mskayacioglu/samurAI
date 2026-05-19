@@ -50,9 +50,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 MODEL_ORDER = ["mt5-xlsum", "mbart50_xlsum", "mbart-xlsum-2"]
 MODEL_LABELS = {
-    "mt5-xlsum": "mT5 XL-Sum (hazir)",
-    "mbart50_xlsum": "mBART50 (egitilen)",
-    "mbart-xlsum-2": "mBART-2 (egitilen)",
+    "mt5-xlsum": "mT5 XL-Sum (prêt)",
+    "mbart50_xlsum": "mBART50 (entraîné)",
+    "mbart-xlsum-2": "mBART-2 (entraîné)",
 }
 MODEL_PALETTE = {
     "mt5-xlsum": "#3b6fb6",
@@ -61,17 +61,25 @@ MODEL_PALETTE = {
 }
 
 LANGUAGE_NAMES = {
-    "ar": "Arapca",
-    "en": "Ingilizce",
-    "es": "Ispanyolca",
-    "fr": "Fransizca",
-    "hi": "Hintce",
-    "ja": "Japonca",
-    "ko": "Korece",
-    "ru": "Rusca",
-    "tr": "Turkce",
-    "vi": "Vietnamca",
-    "zh": "Cince",
+    "ar": "Arabe",
+    "en": "Anglais",
+    "es": "Espagnol",
+    "fr": "Français",
+    "hi": "Hindi",
+    "ja": "Japonais",
+    "ko": "Coréen",
+    "ru": "Russe",
+    "tr": "Turc",
+    "vi": "Vietnamien",
+    "zh": "Chinois",
+}
+
+GROUP_LABELS = {
+    "classical": "métriques classiques",
+    "capability": "capacité",
+    "quality": "qualité",
+    "quality_grounding": "qualité et ancrage à la source",
+    "behavior_efficiency": "comportement et efficacité",
 }
 
 HIGHER_IS_BETTER = {
@@ -175,30 +183,30 @@ DETAILED_KEY_METRICS = [
 ]
 
 SCATTER_PAIRS = [
-    ("source_tokens", "latency_seconds", "Kaynak uzunlugu ve uretim suresi"),
-    ("source_tokens", "summary_tokens", "Kaynak ve ozet uzunlugu"),
-    ("compression_ratio", "capability_overall", "Sikistirma ve genel kabiliyet"),
-    ("compression_ratio", "rougeL_fmeasure", "Sikistirma ve ROUGE-L"),
-    ("latency_per_1k_tokens", "capability_efficiency", "Normalize gecikme ve verimlilik"),
-    ("source_coverage", "quality_factuality", "Kaynak kapsama ve factuality proxy"),
-    ("source_recall", "capability_relevance", "Kaynak recall ve relevance proxy"),
-    ("rougeL_fmeasure", "capability_accuracy", "ROUGE-L ve accuracy proxy"),
-    ("repetition_3gram", "capability_clarity", "Tekrar ve clarity proxy"),
-    ("novelty_2gram", "rougeL_fmeasure", "Novelty ve ROUGE-L"),
-    ("fragment_density", "novelty_2gram", "Ekstraktiflik ve novelty"),
-    ("summary_tokens", "quality_completeness", "Ozet uzunlugu ve completeness proxy"),
+    ("source_tokens", "latency_seconds", "Longueur de la source et temps de génération"),
+    ("source_tokens", "summary_tokens", "Longueur de la source et du résumé"),
+    ("compression_ratio", "capability_overall", "Compression et capacité globale"),
+    ("compression_ratio", "rougeL_fmeasure", "Compression et ROUGE-L"),
+    ("latency_per_1k_tokens", "capability_efficiency", "Latence normalisée et efficacité"),
+    ("source_coverage", "quality_factuality", "Couverture de la source et proxy de factualité"),
+    ("source_recall", "capability_relevance", "Rappel de la source et proxy de pertinence"),
+    ("rougeL_fmeasure", "capability_accuracy", "ROUGE-L et proxy d'exactitude"),
+    ("repetition_3gram", "capability_clarity", "Répétition et proxy de clarté"),
+    ("novelty_2gram", "rougeL_fmeasure", "Nouveauté et ROUGE-L"),
+    ("fragment_density", "novelty_2gram", "Extractivité et nouveauté"),
+    ("summary_tokens", "quality_completeness", "Longueur du résumé et proxy de complétude"),
 ]
 
 INTERACTIVE_SCREENSHOTS = [
     (
         "parallel_cordinates.png",
-        "İnteraktif paralel koordinatlar ekran görüntüsü",
-        "Dil-model satırlarını metrik eksenlerinde gösteren interaktif paralel koordinat ekran görüntüsü.",
+        "Capture d'écran interactive des coordonnées parallèles",
+        "Capture d'écran des coordonnées parallèles interactives affichant les lignes langue-modèle sur les axes métriques.",
     ),
     (
         "rougel-vs-cap.png",
-        "İnteraktif ROUGE-L ve genel kabiliyet scatter ekran görüntüsü",
-        "Dil-model satırlarını ROUGE-L ve genel kabiliyet eksenlerinde gösteren interaktif scatter ekran görüntüsü.",
+        "Capture d'écran interactive ROUGE-L et capacité globale",
+        "Capture d'écran du nuage de points interactif affichant les lignes langue-modèle selon ROUGE-L et la capacité globale.",
     ),
 ]
 
@@ -256,29 +264,39 @@ class Manifest:
 
 
 def metric_label(metric: str) -> str:
-    label = metric
-    for suffix in ("_mean", "_std", "_fmeasure"):
-        label = label.replace(suffix, "")
-    replacements = {
+    exact = {
         "rouge1": "ROUGE-1",
         "rouge2": "ROUGE-2",
         "rougeL": "ROUGE-L",
         "bleu": "BLEU",
         "meteor_lite": "METEOR-lite",
-        "capability": "Cap.",
-        "quality": "Quality",
-        "source": "Source",
-        "fragment": "Fragment",
-        "latency": "Latency",
-        "compression": "Compression",
-        "novelty": "Novelty",
-        "repetition": "Repetition",
-        "summary_tokens": "Summary tokens",
-        "source_tokens": "Source tokens",
+        "capability_overall": "Capacité globale",
+        "capability_coherence": "Cohérence",
+        "capability_accuracy": "Exactitude",
+        "capability_clarity": "Clarté",
+        "capability_relevance": "Pertinence",
+        "capability_efficiency": "Efficacité",
+        "quality_factuality": "Factualité",
+        "quality_completeness": "Complétude",
+        "source_coverage": "Couverture de la source",
+        "source_recall": "Rappel de la source",
+        "fragment_coverage": "Couverture des fragments",
+        "fragment_density": "Densité des fragments",
+        "latency_seconds": "Latence (secondes)",
+        "latency_per_1k_tokens": "Latence par 1k tokens",
+        "compression_ratio": "Taux de compression",
+        "novelty_1gram": "Nouveauté 1-gramme",
+        "novelty_2gram": "Nouveauté 2-grammes",
+        "repetition_3gram": "Répétition 3-grammes",
+        "summary_tokens": "Tokens du résumé",
+        "source_tokens": "Tokens de la source",
     }
-    for old, new in replacements.items():
-        label = label.replace(old, new)
-    return label.replace("_", " ").title()
+    label = metric
+    for suffix in ("_mean", "_std", "_fmeasure"):
+        label = label.replace(suffix, "")
+    if label in exact:
+        return exact[label]
+    return label.replace("_", " ").capitalize()
 
 
 def model_order(values: Iterable[str]) -> list[str]:
@@ -396,11 +414,12 @@ def plot_overall_grouped_bars(run: EvalRun, overall: pd.DataFrame, out_dir: Path
         width = max(11, len(present) * 1.15)
         fig, ax = plt.subplots(figsize=(width, 6))
         sns.barplot(data=plot_df, x="metric_label", y="value", hue="model", hue_order=model_order(overall["model"].astype(str)), palette=MODEL_PALETTE, ax=ax)
-        ax.set_title(f"{run.name}: {group_name} metrikleri - model karsilastirmasi", fontsize=14, weight="bold")
+        group_label = GROUP_LABELS.get(group_name, group_name)
+        ax.set_title(f"{run.name}: comparaison des modèles - {group_label}", fontsize=14, weight="bold")
         ax.set_xlabel("")
-        ax.set_ylabel("Ortalama deger")
+        ax.set_ylabel("Valeur moyenne")
         ax.tick_params(axis="x", rotation=35)
-        ax.legend(title="Model", loc="best")
+        ax.legend(title="Modèle", loc="best")
         ax.grid(axis="y", alpha=0.25)
         save_figure(
             fig,
@@ -408,8 +427,8 @@ def plot_overall_grouped_bars(run: EvalRun, overall: pd.DataFrame, out_dir: Path
             manifest,
             run.name,
             "overall",
-            f"{group_name} grouped bar",
-            "Overall macro summary uzerinden model bazli gruplanmis metrik cubuk grafigi.",
+            f"Barres groupées - {group_label}",
+            "Diagramme en barres groupées des métriques par modèle à partir du résumé macro global.",
         )
 
 
@@ -418,9 +437,9 @@ def plot_overall_heatmaps(run: EvalRun, overall: pd.DataFrame, out_dir: Path, ma
     data = overall.set_index("model")[metrics].T
     fig, ax = plt.subplots(figsize=(8, max(8, len(metrics) * 0.33)))
     sns.heatmap(data, annot=True, fmt=".3f", cmap="viridis", linewidths=0.4, ax=ax)
-    ax.set_title(f"{run.name}: genel metrik matrisi", fontsize=14, weight="bold")
-    ax.set_xlabel("Model")
-    ax.set_ylabel("Metrik")
+    ax.set_title(f"{run.name}: matrice globale des métriques", fontsize=14, weight="bold")
+    ax.set_xlabel("Modèle")
+    ax.set_ylabel("Métrique")
     ax.set_yticklabels([metric_label(m) for m in metrics])
     save_figure(
         fig,
@@ -428,8 +447,8 @@ def plot_overall_heatmaps(run: EvalRun, overall: pd.DataFrame, out_dir: Path, ma
         manifest,
         run.name,
         "overall",
-        "Overall metric heatmap",
-        "Tum makro metriklerin model bazli isiya donusturulmus gorunumu.",
+        "Carte thermique des métriques globales",
+        "Vue en carte thermique de toutes les métriques macro par modèle.",
     )
 
     rank_df = data.copy()
@@ -437,10 +456,10 @@ def plot_overall_heatmaps(run: EvalRun, overall: pd.DataFrame, out_dir: Path, ma
         ascending = not HIGHER_IS_BETTER.get(metric, True)
         rank_df.loc[metric] = rank_df.loc[metric].rank(ascending=ascending, method="min")
     fig, ax = plt.subplots(figsize=(7, max(8, len(metrics) * 0.33)))
-    sns.heatmap(rank_df, annot=True, fmt=".0f", cmap="YlGnBu_r", linewidths=0.4, cbar_kws={"label": "Rank (1 en iyi)"}, ax=ax)
-    ax.set_title(f"{run.name}: metrik bazli model siralari", fontsize=14, weight="bold")
-    ax.set_xlabel("Model")
-    ax.set_ylabel("Metrik")
+    sns.heatmap(rank_df, annot=True, fmt=".0f", cmap="YlGnBu_r", linewidths=0.4, cbar_kws={"label": "Rang (1 = meilleur)"}, ax=ax)
+    ax.set_title(f"{run.name}: classement des modèles par métrique", fontsize=14, weight="bold")
+    ax.set_xlabel("Modèle")
+    ax.set_ylabel("Métrique")
     ax.set_yticklabels([metric_label(m) for m in metrics])
     save_figure(
         fig,
@@ -448,8 +467,8 @@ def plot_overall_heatmaps(run: EvalRun, overall: pd.DataFrame, out_dir: Path, ma
         manifest,
         run.name,
         "overall",
-        "Overall rank heatmap",
-        "Her metrik icin model siralamalarini gosterir; 1 en iyi skordur.",
+        "Carte thermique des rangs globaux",
+        "Affiche le classement des modèles pour chaque métrique; 1 correspond au meilleur score.",
     )
 
 
@@ -480,16 +499,16 @@ def plot_radar(run: EvalRun, overall: pd.DataFrame, metrics: list[str], filename
         run.name,
         "overall",
         title,
-        "Model profillerini radar grafikte karsilastirir.",
+        "Compare les profils des modèles dans un graphique radar.",
     )
 
 
 def plot_overall_tradeoffs(run: EvalRun, overall: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
     pairs = [
-        ("latency_seconds_mean", "capability_overall_mean", "Gecikme vs genel kabiliyet"),
-        ("compression_ratio_mean", "quality_completeness_mean", "Sikistirma vs completeness"),
-        ("source_coverage_mean", "quality_factuality_mean", "Kaynak kapsama vs factuality"),
-        ("capability_efficiency_mean", "rougeL_fmeasure_mean", "Verimlilik vs ROUGE-L"),
+        ("latency_seconds_mean", "capability_overall_mean", "Latence vs capacité globale"),
+        ("compression_ratio_mean", "quality_completeness_mean", "Compression vs complétude"),
+        ("source_coverage_mean", "quality_factuality_mean", "Couverture de la source vs factualité"),
+        ("capability_efficiency_mean", "rougeL_fmeasure_mean", "Efficacité vs ROUGE-L"),
     ]
     for x, y, title in pairs:
         if x not in overall.columns or y not in overall.columns:
@@ -512,7 +531,7 @@ def plot_overall_tradeoffs(run: EvalRun, overall: pd.DataFrame, out_dir: Path, m
             run.name,
             "overall",
             title,
-            "Makro seviyede iki metrik arasindaki model trade-off'unu gosterir.",
+            "Affiche le compromis entre deux métriques au niveau macro.",
         )
 
 
@@ -522,9 +541,9 @@ def plot_language_heatmaps(run: EvalRun, language: pd.DataFrame, out_dir: Path, 
         fig, ax = plt.subplots(figsize=(7.2, 7.2))
         cmap = "mako_r" if not HIGHER_IS_BETTER.get(metric, True) else "viridis"
         sns.heatmap(pivot, annot=True, fmt=".3f", cmap=cmap, linewidths=0.5, ax=ax)
-        ax.set_title(f"{run.name}: dil-model {metric_label(metric)}", fontsize=14, weight="bold")
-        ax.set_xlabel("Model")
-        ax.set_ylabel("Dil")
+        ax.set_title(f"{run.name}: {metric_label(metric)} par langue et modèle", fontsize=14, weight="bold")
+        ax.set_xlabel("Modèle")
+        ax.set_ylabel("Langue")
         ax.set_yticklabels([LANGUAGE_NAMES.get(str(t.get_text()), str(t.get_text())) for t in ax.get_yticklabels()], rotation=0)
         save_figure(
             fig,
@@ -532,8 +551,8 @@ def plot_language_heatmaps(run: EvalRun, language: pd.DataFrame, out_dir: Path, 
             manifest,
             run.name,
             "language_summary",
-            f"{metric_label(metric)} heatmap",
-            "Dil x model matrisinde ilgili metrik ortalamalari.",
+            f"Carte thermique - {metric_label(metric)}",
+            "Moyennes de la métrique dans la matrice langue x modèle.",
         )
 
 
@@ -557,9 +576,9 @@ def plot_language_deltas(run: EvalRun, language: pd.DataFrame, out_dir: Path, ma
         fig, ax = plt.subplots(figsize=(12, max(8, len(metrics) * 0.28)))
         lim = np.nanmax(np.abs(mat.to_numpy()))
         sns.heatmap(mat, cmap="vlag", center=0, vmin=-lim, vmax=lim, linewidths=0.3, ax=ax)
-        ax.set_title(f"{run.name}: {left} eksi {right} dil-metrik farklari", fontsize=14, weight="bold")
-        ax.set_xlabel("Dil")
-        ax.set_ylabel("Metrik")
+        ax.set_title(f"{run.name}: écarts langue-métrique {left} moins {right}", fontsize=14, weight="bold")
+        ax.set_xlabel("Langue")
+        ax.set_ylabel("Métrique")
         ax.set_yticklabels([metric_label(m) for m in mat.index])
         save_figure(
             fig,
@@ -567,8 +586,8 @@ def plot_language_deltas(run: EvalRun, language: pd.DataFrame, out_dir: Path, ma
             manifest,
             run.name,
             "language_summary",
-            f"{left} - {right} metric deltas",
-            "Dil ve metrik bazinda iki model arasindaki ortalama skor farklari.",
+            f"Écarts de métriques {left} - {right}",
+            "Écarts moyens de score entre deux modèles par langue et par métrique.",
         )
 
 
@@ -579,18 +598,18 @@ def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir
     pivot = language.pivot(index="language", columns="model", values=metric)
     rank = pivot.rank(axis=1, ascending=False, method="min")
     fig, ax = plt.subplots(figsize=(7.2, 7.2))
-    sns.heatmap(rank, annot=True, fmt=".0f", cmap="YlGnBu_r", linewidths=0.5, cbar_kws={"label": "Rank (1 en iyi)"}, ax=ax)
-    ax.set_title(f"{run.name}: dil bazli capability siralamasi", fontsize=14, weight="bold")
-    ax.set_xlabel("Model")
-    ax.set_ylabel("Dil")
+    sns.heatmap(rank, annot=True, fmt=".0f", cmap="YlGnBu_r", linewidths=0.5, cbar_kws={"label": "Rang (1 = meilleur)"}, ax=ax)
+    ax.set_title(f"{run.name}: classement de la capacité par langue", fontsize=14, weight="bold")
+    ax.set_xlabel("Modèle")
+    ax.set_ylabel("Langue")
     save_figure(
         fig,
         out_dir / run.name / "02_language_summary" / "language_capability_rank_heatmap.png",
         manifest,
         run.name,
         "language_summary",
-        "Language capability rank heatmap",
-        "Her dilde capability_overall_mean icin model siralamasi.",
+        "Carte thermique du rang de capacité par langue",
+        "Classement des modèles pour la capacité globale moyenne dans chaque langue.",
     )
 
     winners = pivot.idxmax(axis=1).rename("winner").reset_index()
@@ -598,9 +617,9 @@ def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir
     fig, ax = plt.subplots(figsize=(10, 5.5))
     sns.countplot(data=winners, x="winner", order=model_order(winners["winner"]), palette=MODEL_PALETTE, ax=ax)
     add_value_labels(ax, fmt="{:.0f}")
-    ax.set_title(f"{run.name}: dil kazanma sayilari", fontsize=14, weight="bold")
-    ax.set_xlabel("Kazanan model")
-    ax.set_ylabel("Dil sayisi")
+    ax.set_title(f"{run.name}: nombre de victoires par langue", fontsize=14, weight="bold")
+    ax.set_xlabel("Modèle gagnant")
+    ax.set_ylabel("Nombre de langues")
     ax.grid(axis="y", alpha=0.25)
     save_figure(
         fig,
@@ -608,8 +627,8 @@ def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir
         manifest,
         run.name,
         "language_summary",
-        "Language winner counts",
-        "Capability overall bazinda kac dilde hangi modelin birinci oldugu.",
+        "Nombre de victoires par langue",
+        "Nombre de langues où chaque modèle est premier selon la capacité globale.",
     )
 
     sorted_langs = pivot.mean(axis=1).sort_values(ascending=False).index
@@ -617,9 +636,9 @@ def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir
     plot_df["language"] = pd.Categorical(plot_df["language"], categories=list(sorted_langs), ordered=True)
     fig, ax = plt.subplots(figsize=(12, 6))
     sns.lineplot(data=plot_df.sort_values("language"), x="language", y=metric, hue="model", marker="o", palette=MODEL_PALETTE, ax=ax)
-    ax.set_title(f"{run.name}: diller boyunca capability profili", fontsize=14, weight="bold")
-    ax.set_xlabel("Dil")
-    ax.set_ylabel("Capability overall mean")
+    ax.set_title(f"{run.name}: profil de capacité selon les langues", fontsize=14, weight="bold")
+    ax.set_xlabel("Langue")
+    ax.set_ylabel("Capacité globale moyenne")
     ax.grid(axis="y", alpha=0.25)
     save_figure(
         fig,
@@ -627,8 +646,8 @@ def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir
         manifest,
         run.name,
         "language_summary",
-        "Language capability profile lines",
-        "Modellerin diller boyunca genel kabiliyet profilini gosterir.",
+        "Lignes de profil de capacité par langue",
+        "Affiche le profil de capacité globale des modèles selon les langues.",
     )
 
 
@@ -654,8 +673,9 @@ def plot_language_metric_small_multiples(run: EvalRun, language: pd.DataFrame, o
         for ax in axes.ravel()[len(metrics) :]:
             ax.axis("off")
         handles, labels = axes[0][0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc="upper center", ncol=3, title="Model")
-        fig.suptitle(f"{run.name}: dil bazli {group} metrik profilleri", fontsize=16, weight="bold", y=1.01)
+        fig.legend(handles, labels, loc="upper center", ncol=3, title="Modèle")
+        group_label = GROUP_LABELS.get(group, group)
+        fig.suptitle(f"{run.name}: profils des métriques {group_label} par langue", fontsize=16, weight="bold", y=1.01)
         fig.tight_layout()
         save_figure(
             fig,
@@ -663,8 +683,8 @@ def plot_language_metric_small_multiples(run: EvalRun, language: pd.DataFrame, o
             manifest,
             run.name,
             "language_summary",
-            f"Language {group} small multiples",
-            "Ayni metrik grubundaki dil bazli model profillerini kucuk coklu grafiklerle gosterir.",
+            f"Petits multiples par langue - {group_label}",
+            "Affiche les profils des modèles par langue avec de petits multiples pour le même groupe de métriques.",
         )
 
 
@@ -675,9 +695,9 @@ def plot_samples_by_language(run: EvalRun, language: pd.DataFrame, out_dir: Path
     fig, ax = plt.subplots(figsize=(10, 5.5))
     sns.barplot(data=sample_df, x="language", y="samples", color="#4c78a8", ax=ax)
     add_value_labels(ax, fmt="{:.0f}", rotation=90)
-    ax.set_title(f"{run.name}: dil bazli ornek sayilari", fontsize=14, weight="bold")
-    ax.set_xlabel("Dil")
-    ax.set_ylabel("Ornek sayisi")
+    ax.set_title(f"{run.name}: nombre d'échantillons par langue", fontsize=14, weight="bold")
+    ax.set_xlabel("Langue")
+    ax.set_ylabel("Nombre d'échantillons")
     ax.grid(axis="y", alpha=0.25)
     save_figure(
         fig,
@@ -685,8 +705,8 @@ def plot_samples_by_language(run: EvalRun, language: pd.DataFrame, out_dir: Path
         manifest,
         run.name,
         "language_summary",
-        "Language sample counts",
-        "Her dil icin degerlendirme ornek sayisi.",
+        "Nombre d'échantillons par langue",
+        "Nombre d'échantillons d'évaluation pour chaque langue.",
     )
 
 
@@ -707,8 +727,8 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
     for metric in [m for m in core_metrics if m in metrics]:
         fig, ax = plt.subplots(figsize=(8.5, 5.8))
         sns.violinplot(data=sample, x="model", y=metric, order=model_order(sample["model"].astype(str)), palette=MODEL_PALETTE, inner="quartile", cut=0, ax=ax)
-        ax.set_title(f"{run.name}: {metric_label(metric)} model dagilimi", fontsize=14, weight="bold")
-        ax.set_xlabel("Model")
+        ax.set_title(f"{run.name}: distribution de {metric_label(metric)} par modèle", fontsize=14, weight="bold")
+        ax.set_xlabel("Modèle")
         ax.set_ylabel(metric_label(metric))
         ax.tick_params(axis="x", rotation=15)
         ax.grid(axis="y", alpha=0.25)
@@ -719,17 +739,17 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
             manifest,
             run.name,
             "detailed_distributions",
-            f"{metric_label(metric)} model distribution",
-            "Detailed metrics seviyesinde model bazli dagilimi tek basina gosterir.",
+            f"Distribution de {metric_label(metric)} par modèle",
+            "Affiche la distribution par modèle au niveau des métriques détaillées.",
         )
 
         fig, ax = plt.subplots(figsize=(13, 6.6))
         sns.boxplot(data=sample, x="language", y=metric, hue="model", palette=MODEL_PALETTE, fliersize=0.45, linewidth=0.8, ax=ax)
-        ax.set_title(f"{run.name}: {metric_label(metric)} dil x model dagilimi", fontsize=14, weight="bold")
-        ax.set_xlabel("Dil")
+        ax.set_title(f"{run.name}: distribution de {metric_label(metric)} par langue et modèle", fontsize=14, weight="bold")
+        ax.set_xlabel("Langue")
         ax.set_ylabel(metric_label(metric))
         ax.tick_params(axis="x", rotation=0)
-        ax.legend(title="Model", fontsize=8, loc="best")
+        ax.legend(title="Modèle", fontsize=8, loc="best")
         ax.grid(axis="y", alpha=0.25)
         fig.tight_layout()
         save_figure(
@@ -738,15 +758,15 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
             manifest,
             run.name,
             "detailed_distributions",
-            f"{metric_label(metric)} language-model distribution",
-            "Detailed metrics seviyesinde dil ve model bazli dagilimi tek basina gosterir.",
+            f"Distribution langue-modèle de {metric_label(metric)}",
+            "Affiche la distribution par langue et par modèle au niveau des métriques détaillées.",
         )
 
         fig, ax = plt.subplots(figsize=(10, 5.5))
         sns.ecdfplot(data=sample, x=metric, hue="model", hue_order=model_order(sample["model"].astype(str)), palette=MODEL_PALETTE, ax=ax)
         ax.set_title(f"{run.name}: {metric_label(metric)} ECDF", fontsize=14, weight="bold")
         ax.set_xlabel(metric_label(metric))
-        ax.set_ylabel("Kumulatif oran")
+        ax.set_ylabel("Proportion cumulative")
         ax.grid(alpha=0.25)
         save_figure(
             fig,
@@ -755,7 +775,7 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
             run.name,
             "detailed_distributions",
             f"{metric_label(metric)} ECDF",
-            "Model dagilimlarini kumulatif olarak karsilastirir.",
+            "Compare les distributions des modèles de manière cumulative.",
         )
 
     long = sample.melt(id_vars=["model", "language"], value_vars=metrics, var_name="metric", value_name="value").dropna()
@@ -764,9 +784,10 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
         pivot = stats.pivot(index="metric", columns="model", values=stat)
         fig, ax = plt.subplots(figsize=(8, max(8, len(metrics) * 0.27)))
         sns.heatmap(pivot, annot=True, fmt=".3f", cmap="viridis", linewidths=0.3, ax=ax)
-        ax.set_title(f"{run.name}: detailed {stat} ozeti", fontsize=14, weight="bold")
-        ax.set_xlabel("Model")
-        ax.set_ylabel("Metrik")
+        stat_label = {"mean": "moyenne", "median": "médiane", "std": "écart-type"}[stat]
+        ax.set_title(f"{run.name}: résumé détaillé - {stat_label}", fontsize=14, weight="bold")
+        ax.set_xlabel("Modèle")
+        ax.set_ylabel("Métrique")
         ax.set_yticklabels([metric_label(m) for m in pivot.index])
         save_figure(
             fig,
@@ -774,8 +795,8 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
             manifest,
             run.name,
             "detailed_distributions",
-            f"Detailed metric {stat} heatmap",
-            "Detailed metrics uzerinden model bazli ozet istatistik matrisi.",
+            f"Carte thermique des métriques détaillées - {stat_label}",
+            "Matrice statistique résumée par modèle à partir des métriques détaillées.",
         )
 
 
@@ -785,7 +806,7 @@ def plot_detailed_correlations(run: EvalRun, detailed: pd.DataFrame, out_dir: Pa
     corr = sample[metrics].corr(numeric_only=True)
     fig, ax = plt.subplots(figsize=(14, 12))
     sns.heatmap(corr, cmap="vlag", center=0, linewidths=0.25, ax=ax)
-    ax.set_title(f"{run.name}: metrik korelasyon matrisi", fontsize=15, weight="bold")
+    ax.set_title(f"{run.name}: matrice de corrélation des métriques", fontsize=15, weight="bold")
     ax.set_xticklabels([metric_label(t.get_text()) for t in ax.get_xticklabels()], rotation=45, ha="right")
     ax.set_yticklabels([metric_label(t.get_text()) for t in ax.get_yticklabels()], rotation=0)
     save_figure(
@@ -794,8 +815,8 @@ def plot_detailed_correlations(run: EvalRun, detailed: pd.DataFrame, out_dir: Pa
         manifest,
         run.name,
         "detailed_distributions",
-        "All metric correlation heatmap",
-        "Detailed seviyedeki sayisal metriklerin korelasyon haritasi.",
+        "Carte thermique de corrélation de toutes les métriques",
+        "Carte des corrélations entre les métriques numériques au niveau détaillé.",
     )
 
     for model in model_order(sample["model"].astype(str)):
@@ -805,7 +826,7 @@ def plot_detailed_correlations(run: EvalRun, detailed: pd.DataFrame, out_dir: Pa
         corr = model_df[metrics].corr(numeric_only=True)
         fig, ax = plt.subplots(figsize=(14, 12))
         sns.heatmap(corr, cmap="vlag", center=0, linewidths=0.25, ax=ax)
-        ax.set_title(f"{run.name}: {model} metrik korelasyonlari", fontsize=15, weight="bold")
+        ax.set_title(f"{run.name}: corrélations des métriques - {model}", fontsize=15, weight="bold")
         ax.set_xticklabels([metric_label(t.get_text()) for t in ax.get_xticklabels()], rotation=45, ha="right")
         ax.set_yticklabels([metric_label(t.get_text()) for t in ax.get_yticklabels()], rotation=0)
         save_figure(
@@ -814,8 +835,8 @@ def plot_detailed_correlations(run: EvalRun, detailed: pd.DataFrame, out_dir: Pa
             manifest,
             run.name,
             "detailed_distributions",
-            f"{model} correlation heatmap",
-            "Tek model icin detailed metrik korelasyonlari.",
+            f"Carte thermique de corrélation - {model}",
+            "Corrélations des métriques détaillées pour un seul modèle.",
         )
 
 
@@ -837,15 +858,15 @@ def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, m
             s=18,
             ax=axes[0],
         )
-        axes[0].set_title("Model renkli scatter", weight="bold")
+        axes[0].set_title("Nuage de points coloré par modèle", weight="bold")
         axes[0].set_xlabel(metric_label(x))
         axes[0].set_ylabel(metric_label(y))
         set_zero_based_axes(axes[0], sample[x], sample[y], x, y)
         axes[0].grid(alpha=0.2)
-        axes[0].legend(title="Model", fontsize=8)
+        axes[0].legend(title="Modèle", fontsize=8)
 
         hb = axes[1].hexbin(sample[x], sample[y], gridsize=45, mincnt=1, cmap="magma", bins="log")
-        axes[1].set_title("Yogunluk hexbin", weight="bold")
+        axes[1].set_title("Hexbin de densité", weight="bold")
         axes[1].set_xlabel(metric_label(x))
         axes[1].set_ylabel(metric_label(y))
         set_zero_based_axes(axes[1], sample[x], sample[y], x, y)
@@ -859,7 +880,7 @@ def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, m
             run.name,
             "tradeoffs_scatter",
             title,
-            "Detailed sample seviyesinde scatter ve yogunluk gorunumu.",
+            "Vue en nuage de points et densité au niveau des échantillons détaillés.",
         )
 
 
@@ -880,12 +901,12 @@ def plot_pairplot(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest:
         return
     sample = sample_df(detailed[cols].dropna(), min(sample_size, 9000), seed=123)
     grid = sns.pairplot(sample, hue="model", vars=[c for c in cols if c != "model"], palette=MODEL_PALETTE, corner=True, plot_kws={"alpha": 0.25, "s": 12, "linewidth": 0})
-    grid.fig.suptitle(f"{run.name}: cekirdek metrik pairplot", fontsize=16, weight="bold", y=1.02)
+    grid.fig.suptitle(f"{run.name}: matrice de relations des métriques centrales", fontsize=16, weight="bold", y=1.02)
     out_path = out_dir / run.name / "04_tradeoffs_scatter" / "core_metric_pairplot.png"
     ensure_dir(out_path.parent)
     grid.fig.savefig(out_path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(grid.fig)
-    manifest.add(run.name, "tradeoffs_scatter", out_path, "Core metric pairplot", "Cekirdek metrikler icin sample bazli ikili iliski matrisi.")
+    manifest.add(run.name, "tradeoffs_scatter", out_path, "Matrice de relations des métriques centrales", "Matrice des relations deux à deux au niveau des échantillons pour les métriques centrales.")
 
 
 def pairwise_winner_tables(detailed: pd.DataFrame, metrics: list[str]) -> dict[str, pd.DataFrame]:
@@ -919,17 +940,17 @@ def plot_pairwise_wins(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, mani
         pivot = counts.pivot(index="language", columns="winner", values="win_rate").fillna(0)
         fig, ax = plt.subplots(figsize=(7.2, 7.2))
         sns.heatmap(pivot, annot=True, fmt=".2f", cmap="crest", linewidths=0.5, vmin=0, vmax=1, ax=ax)
-        ax.set_title(f"{run.name}: sample kazanma orani - {metric_label(metric)}", fontsize=14, weight="bold")
-        ax.set_xlabel("Kazanan model")
-        ax.set_ylabel("Dil")
+        ax.set_title(f"{run.name}: taux de victoire par échantillon - {metric_label(metric)}", fontsize=14, weight="bold")
+        ax.set_xlabel("Modèle gagnant")
+        ax.set_ylabel("Langue")
         save_figure(
             fig,
             out_dir / run.name / "05_sample_pairwise" / "win_rate_heatmaps" / f"win_rate_{clean_name(metric)}.png",
             manifest,
             run.name,
             "sample_pairwise",
-            f"{metric_label(metric)} win-rate heatmap",
-            "Ayni sample icin modeller arasinda hangi modelin kazandigini dil bazinda gosterir.",
+            f"Carte thermique du taux de victoire - {metric_label(metric)}",
+            "Affiche par langue quel modèle gagne entre les modèles sur les mêmes échantillons.",
         )
 
     if all_rows:
@@ -939,9 +960,9 @@ def plot_pairwise_wins(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, mani
         pivot = overall.pivot(index="metric", columns="winner", values="win_rate").fillna(0)
         fig, ax = plt.subplots(figsize=(8, max(5.5, len(pivot) * 0.5)))
         sns.heatmap(pivot, annot=True, fmt=".2f", cmap="crest", linewidths=0.5, vmin=0, vmax=1, ax=ax)
-        ax.set_title(f"{run.name}: metrik bazli genel sample kazanma oranlari", fontsize=14, weight="bold")
-        ax.set_xlabel("Model")
-        ax.set_ylabel("Metrik")
+        ax.set_title(f"{run.name}: taux de victoire globaux par métrique", fontsize=14, weight="bold")
+        ax.set_xlabel("Modèle")
+        ax.set_ylabel("Métrique")
         ax.set_yticklabels([metric_label(m) for m in pivot.index])
         save_figure(
             fig,
@@ -949,8 +970,8 @@ def plot_pairwise_wins(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, mani
             manifest,
             run.name,
             "sample_pairwise",
-            "Overall sample win rates by metric",
-            "Tum dillerde sample bazli kazanma oranlarini metrik bazinda ozetler.",
+            "Taux de victoire globaux par métrique",
+            "Résume les taux de victoire par échantillon et par métrique sur toutes les langues.",
         )
 
 
@@ -975,11 +996,11 @@ def plot_pairwise_deltas(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, ma
     fig, ax = plt.subplots(figsize=(14, max(6, len(PAIRWISE_METRICS) * 0.75)))
     sns.boxplot(data=plot_df, y="metric", x="delta", hue="pair", fliersize=0.5, linewidth=0.8, ax=ax)
     ax.axvline(0, color="black", linewidth=1)
-    ax.set_title(f"{run.name}: sample bazli model fark dagilimlari", fontsize=14, weight="bold")
-    ax.set_xlabel("Sol model - sag model")
-    ax.set_ylabel("Metrik")
+    ax.set_title(f"{run.name}: distributions des écarts entre modèles par échantillon", fontsize=14, weight="bold")
+    ax.set_xlabel("Modèle de gauche - modèle de droite")
+    ax.set_ylabel("Métrique")
     ax.set_yticklabels([metric_label(t.get_text()) for t in ax.get_yticklabels()])
-    ax.legend(title="Model cifti", fontsize=8)
+    ax.legend(title="Paire de modèles", fontsize=8)
     ax.grid(axis="x", alpha=0.25)
     save_figure(
         fig,
@@ -987,8 +1008,8 @@ def plot_pairwise_deltas(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, ma
         manifest,
         run.name,
         "sample_pairwise",
-        "Pairwise delta boxplots",
-        "Ayni sample uzerinden iki model arasindaki skor farklarinin dagilimi.",
+        "Boîtes à moustaches des écarts par paire",
+        "Distribution des écarts de score entre deux modèles sur les mêmes échantillons.",
     )
 
 
@@ -1033,7 +1054,7 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
             lo = min(plot_df[left].min(), plot_df[right].min())
             hi = max(plot_df[left].max(), plot_df[right].max())
             ax.plot([lo, hi], [lo, hi], color="black", linestyle="--", linewidth=1)
-            ax.set_title(f"Run stabilitesi: {right} vs {left}", fontsize=14, weight="bold")
+            ax.set_title(f"Stabilité des exécutions: {right} vs {left}", fontsize=14, weight="bold")
             ax.set_xlabel(f"{left} {metric_label(metric)}")
             ax.set_ylabel(f"{right} {metric_label(metric)}")
             ax.grid(alpha=0.25)
@@ -1043,8 +1064,8 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
                 manifest,
                 "cross_run",
                 "cross_run",
-                "Full vs 200 capability scatter",
-                "Dil-model seviyesinde iki run arasindaki capability skor stabilitesi.",
+                "Nuage de points de capacité full vs 200",
+                "Stabilité des scores de capacité entre deux exécutions au niveau langue-modèle.",
             )
 
             diff = (pivot[right] - pivot[left]).rename("delta").reset_index()
@@ -1052,17 +1073,17 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
             fig, ax = plt.subplots(figsize=(7.2, 7.2))
             lim = np.nanmax(np.abs(mat.to_numpy()))
             sns.heatmap(mat, annot=True, fmt=".3f", cmap="vlag", center=0, vmin=-lim, vmax=lim, linewidths=0.5, ax=ax)
-            ax.set_title(f"Run farki: {right} - {left}", fontsize=14, weight="bold")
-            ax.set_xlabel("Model")
-            ax.set_ylabel("Dil")
+            ax.set_title(f"Écart entre exécutions: {right} - {left}", fontsize=14, weight="bold")
+            ax.set_xlabel("Modèle")
+            ax.set_ylabel("Langue")
             save_figure(
                 fig,
                 out_dir / "cross_run" / "full_vs_200_capability_delta_heatmap.png",
                 manifest,
                 "cross_run",
                 "cross_run",
-                "Full vs 200 capability delta heatmap",
-                "Dil-model seviyesinde full ve 200 run capability farklari.",
+                "Carte thermique des écarts de capacité full vs 200",
+                "Écarts de capacité entre l'exécution complète et l'exécution 200 au niveau langue-modèle.",
             )
 
     metrics = [m for group in OVERALL_GROUPS.values() for m in group if m in overall.columns]
@@ -1080,9 +1101,9 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
         fig, ax = plt.subplots(figsize=(8, max(8, len(mat) * 0.33)))
         lim = np.nanmax(np.abs(mat.to_numpy()))
         sns.heatmap(mat, annot=True, fmt=".3f", cmap="vlag", center=0, vmin=-lim, vmax=lim, linewidths=0.4, ax=ax)
-        ax.set_title("Overall run farklari", fontsize=14, weight="bold")
-        ax.set_xlabel("Model")
-        ax.set_ylabel("Metrik")
+        ax.set_title("Écarts globaux entre exécutions", fontsize=14, weight="bold")
+        ax.set_xlabel("Modèle")
+        ax.set_ylabel("Métrique")
         ax.set_yticklabels([metric_label(m) for m in mat.index])
         save_figure(
             fig,
@@ -1090,8 +1111,8 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
             manifest,
             "cross_run",
             "cross_run",
-            "Overall metric delta heatmap",
-            "Overall macro summary seviyesinde run'lar arasi metrik farklari.",
+            "Carte thermique des écarts de métriques globaux",
+            "Écarts de métriques entre exécutions au niveau du résumé macro global.",
         )
 
 
@@ -1102,8 +1123,8 @@ def generate_for_run(run: EvalRun, out_dir: Path, manifest: Manifest, sample_siz
 
     plot_overall_grouped_bars(run, overall, out_dir, manifest)
     plot_overall_heatmaps(run, overall, out_dir, manifest)
-    plot_radar(run, overall, OVERALL_GROUPS["capability"], "radar_capability_metrics.png", "Capability radar", out_dir, manifest)
-    plot_radar(run, overall, OVERALL_GROUPS["classical"], "radar_classical_metrics.png", "Klasik metrik radar", out_dir, manifest)
+    plot_radar(run, overall, OVERALL_GROUPS["capability"], "radar_capability_metrics.png", "Radar de capacité", out_dir, manifest)
+    plot_radar(run, overall, OVERALL_GROUPS["classical"], "radar_classical_metrics.png", "Radar des métriques classiques", out_dir, manifest)
     plot_overall_tradeoffs(run, overall, out_dir, manifest)
 
     plot_language_heatmaps(run, language, out_dir, manifest)
