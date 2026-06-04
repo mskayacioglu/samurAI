@@ -1,3 +1,5 @@
+"""Summarization service facade."""
+
 from core import (
     extractive_fallback,
     normalize_text,
@@ -7,7 +9,10 @@ from core import (
 
 
 class SummarizationService:
+    """Generate article summaries with model and extractive fallbacks."""
+
     def summarize_article(self, text: str, title: str, model_key: str, language_key: str, article_key: str) -> str:
+        """Summarize article text and return a cleaned fallback when needed."""
         summary = summarize_article_cached(text, model_key, language_key, article_key=article_key)
         summary = postprocess_summary(summary, title, language_key)
         if summary:

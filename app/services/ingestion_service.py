@@ -1,3 +1,5 @@
+"""News ingestion orchestration service."""
+
 import os
 import re
 from collections import defaultdict, deque
@@ -16,6 +18,8 @@ TRUTHY = {"1", "true", "yes", "on"}
 
 
 class IngestionService:
+    """Fetch source entries, clean articles, summarize them, and persist results."""
+
     def __init__(
         self,
         catalog_service: CatalogService,
@@ -32,6 +36,7 @@ class IngestionService:
 
     @staticmethod
     def _parse_iso_datetime(value: str) -> datetime | None:
+        """Parse an ISO datetime string into UTC or return None."""
         text = (value or "").strip()
         if not text:
             return None
@@ -45,10 +50,12 @@ class IngestionService:
 
     @staticmethod
     def _default_model_keys() -> list[str]:
+        """Return model keys used when no ingest model list is configured."""
         # Precompute multilingual models by default.
         return ["mbart50_xlsum", "mbart-xlsum-2", "mt5-xlsum"]
 
     def _resolve_model_keys(self) -> list[str]:
+        """Resolve configured ingest model keys to valid catalog entries."""
         raw_model_keys = (os.getenv("INGEST_MODEL_KEYS") or "").strip()
         if raw_model_keys:
             candidates = [key.strip() for key in raw_model_keys.split(",") if key.strip()]
@@ -65,6 +72,7 @@ class IngestionService:
 
     @staticmethod
     def _build_language_budgets(languages: list[str], total_budget: int) -> dict[str, int]:
+        """Distribute a run item budget fairly across languages."""
         if not languages:
             return {}
         total_budget = max(1, int(total_budget))
@@ -84,6 +92,7 @@ class IngestionService:
 
     @staticmethod
     def _round_robin_entries_by_source(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Interleave entries by source so one feed cannot dominate a run."""
         grouped: dict[str, deque] = defaultdict(deque)
         source_order: list[str] = []
 
@@ -107,6 +116,7 @@ class IngestionService:
         return result
 
     def load_runtime_config(self) -> dict[str, Any]:
+        """Build ingest configuration from environment variables and defaults."""
         raw_languages = (os.getenv("INGEST_LANGUAGES") or "").strip()
         if raw_languages:
             languages = [lang.strip().lower() for lang in raw_languages.split(",") if lang.strip()]
@@ -142,6 +152,7 @@ class IngestionService:
         }
 
     def _build_item_payload(self, source_item: dict[str, Any], language_key: str, article_text: str) -> dict[str, Any]:
+        """Convert a gathered RSS entry and article body into a DB payload."""
         published_at = source_item.get("published_at")
         if published_at and not isinstance(published_at, datetime):
             published_at = None
@@ -163,6 +174,7 @@ class IngestionService:
         }
 
     def run_once(self, logger=None) -> dict[str, Any]:
+        """Execute one ingest run and return processing statistics."""
         config = self.load_runtime_config()
         run_id = self.storage_service.start_ingest_run(config)
         from_date = self._parse_iso_datetime(config.get("from_date", ""))
@@ -294,16 +306,20 @@ class IngestionService:
             raise
 
     def latest_status(self) -> dict[str, Any]:
+        """Return the latest persisted ingest run status."""
         return self.storage_service.get_latest_ingest_run()
 
     @staticmethod
     def is_enabled() -> bool:
+        """Return whether the ingest scheduler is enabled."""
         return str(os.getenv("INGEST_ENABLED", "1")).strip().lower() in TRUTHY
 
     @staticmethod
     def run_on_start() -> bool:
+        """Return whether ingestion should run when the app starts."""
         return str(os.getenv("INGEST_RUN_ON_START", "1")).strip().lower() in TRUTHY
 
     @staticmethod
     def interval_seconds() -> int:
+        """Return the scheduler interval in seconds with a minimum bound."""
         return max(60, int(os.getenv("INGEST_INTERVAL_SECONDS", "900")))

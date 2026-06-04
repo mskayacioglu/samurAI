@@ -1,7 +1,11 @@
+"""News source aggregation service."""
+
 from core import gather_news, normalize_filter_value
 
 
 class NewsService:
+    """Wrap source filtering and RSS gathering helpers from core."""
+
     def gather(
         self,
         limit_per_source: int,
@@ -11,6 +15,7 @@ class NewsService:
         country_key: str = "",
         region_key: str = "",
     ):
+        """Gather RSS entries for the selected language and filters."""
         return gather_news(
             limit_per_source=limit_per_source,
             language_key=language_key,
@@ -21,4 +26,5 @@ class NewsService:
         )
 
     def normalize_filter(self, value: str) -> str:
+        """Normalize a user or environment filter value."""
         return normalize_filter_value(value)

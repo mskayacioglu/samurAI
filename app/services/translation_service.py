@@ -1,8 +1,13 @@
+"""Translation service facade for title and summary text."""
+
 from core import translate_text
 
 
 class TranslationService:
+    """Translate API output fields when source and target languages differ."""
+
     def translate_if_needed(self, title: str, summary: str, source_language: str, target_language: str):
+        """Return translated title and summary plus whether translation changed text."""
         if target_language == source_language:
             return title, summary, False
 

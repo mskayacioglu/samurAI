@@ -226,6 +226,8 @@ TEXT_COLUMNS = {"title", "source_text", "reference_summary", "generated_summary"
 
 @dataclass(frozen=True)
 class EvalRun:
+    """Paths for one completed evaluation run."""
+
     name: str
     path: Path
     overall_csv: Path
@@ -234,10 +236,13 @@ class EvalRun:
 
 
 class Manifest:
+    """Collect and write visualization manifest metadata."""
+
     def __init__(self) -> None:
         self.rows: list[dict[str, str]] = []
 
     def add(self, run: str, category: str, path: Path, title: str, description: str) -> None:
+        """Append one visualization record to the manifest."""
         self.rows.append(
             {
                 "run": run,
@@ -249,6 +254,7 @@ class Manifest:
         )
 
     def write(self, out_dir: Path) -> None:
+        """Write CSV and Markdown indexes for collected visualizations."""
         df = pd.DataFrame(self.rows)
         df.to_csv(out_dir / "visualization_manifest.csv", index=False)
         lines = ["# Evaluation Visualization Index", ""]
@@ -264,6 +270,7 @@ class Manifest:
 
 
 def metric_label(metric: str) -> str:
+    """Return a human-readable label for a metric column."""
     exact = {
         "rouge1": "ROUGE-1",
         "rouge2": "ROUGE-2",
@@ -300,6 +307,7 @@ def metric_label(metric: str) -> str:
 
 
 def model_order(values: Iterable[str]) -> list[str]:
+    """Return model values ordered by the preferred model order."""
     seen = list(dict.fromkeys(values))
     ordered = [m for m in MODEL_ORDER if m in seen]
     ordered.extend([m for m in seen if m not in ordered])
@@ -307,20 +315,24 @@ def model_order(values: Iterable[str]) -> list[str]:
 
 
 def language_order(values: Iterable[str]) -> list[str]:
+    """Return language values ordered with Turkish first."""
     return sorted(dict.fromkeys(values), key=lambda x: (x != "tr", x))
 
 
 def clean_name(value: str) -> str:
+    """Return a filesystem-safe lowercase name."""
     value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
     return value.strip("_").lower()
 
 
 def ensure_dir(path: Path) -> Path:
+    """Create a directory and return its path."""
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def save_figure(fig: plt.Figure, out_path: Path, manifest: Manifest, run: str, category: str, title: str, description: str) -> None:
+    """Save a Matplotlib figure and add it to the manifest."""
     ensure_dir(out_path.parent)
     fig.savefig(out_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -328,12 +340,14 @@ def save_figure(fig: plt.Figure, out_path: Path, manifest: Manifest, run: str, c
 
 
 def write_html(path: Path, html: str, manifest: Manifest, run: str, category: str, title: str, description: str) -> None:
+    """Write an HTML visualization and add it to the manifest."""
     ensure_dir(path.parent)
     path.write_text(html, encoding="utf-8")
     manifest.add(run, category, path, title, description)
 
 
 def discover_runs(input_root: Path) -> list[EvalRun]:
+    """Discover evaluation run directories that contain required CSV files."""
     ignored = {".venv", ".venv_broken_20260329_173249", "__pycache__", "visualizations", "eval_visualizations"}
     runs: list[EvalRun] = []
     for directory in sorted([p for p in input_root.rglob("*") if p.is_dir()]):
@@ -348,12 +362,14 @@ def discover_runs(input_root: Path) -> list[EvalRun]:
 
 
 def read_overall(run: EvalRun) -> pd.DataFrame:
+    """Read and sort the overall model summary for a run."""
     df = pd.read_csv(run.overall_csv)
     df["model"] = pd.Categorical(df["model"], categories=model_order(df["model"]), ordered=True)
     return df.sort_values("model")
 
 
 def read_language(run: EvalRun) -> pd.DataFrame:
+    """Read and sort the language-model summary for a run."""
     df = pd.read_csv(run.language_csv)
     df["model"] = pd.Categorical(df["model"], categories=model_order(df["model"]), ordered=True)
     df["language"] = pd.Categorical(df["language"], categories=language_order(df["language"]), ordered=True)
@@ -361,11 +377,13 @@ def read_language(run: EvalRun) -> pd.DataFrame:
 
 
 def detailed_usecols(path: Path) -> list[str]:
+    """Return detailed metric columns excluding large text columns."""
     cols = list(pd.read_csv(path, nrows=0).columns)
     return [c for c in cols if c not in TEXT_COLUMNS]
 
 
 def read_detailed(run: EvalRun) -> pd.DataFrame:
+    """Read detailed metrics and coerce metric columns to numeric values."""
     df = pd.read_csv(run.detailed_csv, usecols=detailed_usecols(run.detailed_csv), low_memory=False)
     df["model"] = pd.Categorical(df["model"], categories=model_order(df["model"]), ordered=True)
     df["language"] = pd.Categorical(df["language"], categories=language_order(df["language"]), ordered=True)
@@ -376,12 +394,14 @@ def read_detailed(run: EvalRun) -> pd.DataFrame:
 
 
 def sample_df(df: pd.DataFrame, sample_size: int, seed: int = 42) -> pd.DataFrame:
+    """Return a deterministic sample when a DataFrame exceeds sample size."""
     if len(df) <= sample_size:
         return df
     return df.sample(sample_size, random_state=seed)
 
 
 def add_value_labels(ax: plt.Axes, fmt: str = "{:.3f}", rotation: int = 0) -> None:
+    """Add value labels to bar containers on an axis."""
     for container in ax.containers:
         try:
             ax.bar_label(container, fmt=fmt, fontsize=8, rotation=rotation, padding=2)
@@ -390,6 +410,7 @@ def add_value_labels(ax: plt.Axes, fmt: str = "{:.3f}", rotation: int = 0) -> No
 
 
 def zero_based_upper(values: pd.Series | np.ndarray, metric: str | None = None) -> float:
+    """Return a padded axis upper bound with zero as lower bound."""
     series = pd.Series(values).replace([np.inf, -np.inf], np.nan).dropna()
     if series.empty:
         return 1.0
@@ -400,11 +421,13 @@ def zero_based_upper(values: pd.Series | np.ndarray, metric: str | None = None) 
 
 
 def set_zero_based_axes(ax: plt.Axes, x_values: pd.Series | np.ndarray, y_values: pd.Series | np.ndarray, x_metric: str | None = None, y_metric: str | None = None) -> None:
+    """Set x and y limits to zero-based padded ranges."""
     ax.set_xlim(left=0, right=zero_based_upper(x_values, x_metric))
     ax.set_ylim(bottom=0, top=zero_based_upper(y_values, y_metric))
 
 
 def plot_overall_grouped_bars(run: EvalRun, overall: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate grouped bar charts for overall metric groups."""
     for group_name, metrics in OVERALL_GROUPS.items():
         present = [m for m in metrics if m in overall.columns]
         if not present:
@@ -433,6 +456,7 @@ def plot_overall_grouped_bars(run: EvalRun, overall: pd.DataFrame, out_dir: Path
 
 
 def plot_overall_heatmaps(run: EvalRun, overall: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate overall metric and rank heatmaps."""
     metrics = [m for group in OVERALL_GROUPS.values() for m in group if m in overall.columns]
     data = overall.set_index("model")[metrics].T
     fig, ax = plt.subplots(figsize=(8, max(8, len(metrics) * 0.33)))
@@ -473,6 +497,7 @@ def plot_overall_heatmaps(run: EvalRun, overall: pd.DataFrame, out_dir: Path, ma
 
 
 def plot_radar(run: EvalRun, overall: pd.DataFrame, metrics: list[str], filename: str, title: str, out_dir: Path, manifest: Manifest) -> None:
+    """Generate a radar chart for selected overall metrics."""
     metrics = [m for m in metrics if m in overall.columns]
     if len(metrics) < 3:
         return
@@ -504,6 +529,7 @@ def plot_radar(run: EvalRun, overall: pd.DataFrame, metrics: list[str], filename
 
 
 def plot_overall_tradeoffs(run: EvalRun, overall: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate overall scatter plots for selected metric tradeoffs."""
     pairs = [
         ("latency_seconds_mean", "capability_overall_mean", "Latence vs capacité globale"),
         ("compression_ratio_mean", "quality_completeness_mean", "Compression vs complétude"),
@@ -536,6 +562,7 @@ def plot_overall_tradeoffs(run: EvalRun, overall: pd.DataFrame, out_dir: Path, m
 
 
 def plot_language_heatmaps(run: EvalRun, language: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate language-by-model heatmaps for selected metrics."""
     for metric in [m for m in LANGUAGE_HEATMAP_METRICS if m in language.columns]:
         pivot = language.pivot(index="language", columns="model", values=metric)
         fig, ax = plt.subplots(figsize=(7.2, 7.2))
@@ -557,6 +584,7 @@ def plot_language_heatmaps(run: EvalRun, language: pd.DataFrame, out_dir: Path, 
 
 
 def plot_language_deltas(run: EvalRun, language: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate pairwise model-delta heatmaps by language and metric."""
     pairs = [("mt5-xlsum", "mbart50_xlsum"), ("mt5-xlsum", "mbart-xlsum-2"), ("mbart50_xlsum", "mbart-xlsum-2")]
     metrics = [m for m in LANGUAGE_HEATMAP_METRICS if m in language.columns and m.endswith("_mean")]
     for left, right in pairs:
@@ -592,6 +620,7 @@ def plot_language_deltas(run: EvalRun, language: pd.DataFrame, out_dir: Path, ma
 
 
 def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate language-level rank, winner count, and profile charts."""
     metric = "capability_overall_mean"
     if metric not in language.columns:
         return
@@ -652,6 +681,7 @@ def plot_language_rank_and_winners(run: EvalRun, language: pd.DataFrame, out_dir
 
 
 def plot_language_metric_small_multiples(run: EvalRun, language: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate small-multiple line charts for language metric groups."""
     metric_sets = {
         "classical": [m for m in OVERALL_GROUPS["classical"] if m in language.columns],
         "capability": [m for m in OVERALL_GROUPS["capability"] if m in language.columns],
@@ -689,6 +719,7 @@ def plot_language_metric_small_multiples(run: EvalRun, language: pd.DataFrame, o
 
 
 def plot_samples_by_language(run: EvalRun, language: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate a bar chart for sample counts by language."""
     if "samples" not in language.columns:
         return
     sample_df = language.drop_duplicates("language")[["language", "samples"]].sort_values("samples", ascending=False)
@@ -711,6 +742,7 @@ def plot_samples_by_language(run: EvalRun, language: pd.DataFrame, out_dir: Path
 
 
 def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest: Manifest, sample_size: int) -> None:
+    """Generate distribution, ECDF, and detailed summary heatmap figures."""
     sample = sample_df(detailed, sample_size)
     metrics = [m for m in DETAILED_KEY_METRICS if m in sample.columns]
     core_metrics = [
@@ -801,6 +833,7 @@ def plot_detailed_distributions(run: EvalRun, detailed: pd.DataFrame, out_dir: P
 
 
 def plot_detailed_correlations(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest: Manifest, sample_size: int) -> None:
+    """Generate all-model and per-model correlation heatmaps."""
     sample = sample_df(detailed, sample_size)
     metrics = [m for m in DETAILED_KEY_METRICS if m in sample.columns]
     corr = sample[metrics].corr(numeric_only=True)
@@ -841,6 +874,7 @@ def plot_detailed_correlations(run: EvalRun, detailed: pd.DataFrame, out_dir: Pa
 
 
 def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest: Manifest, sample_size: int) -> None:
+    """Generate scatter and hexbin plots for detailed metric pairs."""
     sample = sample_df(detailed, sample_size)
     for x, y, title in SCATTER_PAIRS:
         if x not in sample.columns or y not in sample.columns:
@@ -885,6 +919,7 @@ def plot_detailed_scatter(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, m
 
 
 def plot_pairplot(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest: Manifest, sample_size: int) -> None:
+    """Generate a pairplot for central detailed metrics."""
     if len(detailed) == 0:
         return
     cols = [
@@ -910,6 +945,7 @@ def plot_pairplot(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest:
 
 
 def pairwise_winner_tables(detailed: pd.DataFrame, metrics: list[str]) -> dict[str, pd.DataFrame]:
+    """Build per-metric winner tables for same-sample model comparisons."""
     result: dict[str, pd.DataFrame] = {}
     id_cols = ["language", "sample_id"]
     for metric in metrics:
@@ -927,6 +963,7 @@ def pairwise_winner_tables(detailed: pd.DataFrame, metrics: list[str]) -> dict[s
 
 
 def plot_pairwise_wins(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest: Manifest) -> None:
+    """Generate pairwise win-rate heatmaps from detailed metrics."""
     tables = pairwise_winner_tables(detailed, PAIRWISE_METRICS)
     all_rows = []
     for metric, table in tables.items():
@@ -976,6 +1013,7 @@ def plot_pairwise_wins(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, mani
 
 
 def plot_pairwise_deltas(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, manifest: Manifest, sample_size: int) -> None:
+    """Generate boxplots for pairwise same-sample metric deltas."""
     model_pairs = [("mt5-xlsum", "mbart50_xlsum"), ("mt5-xlsum", "mbart-xlsum-2"), ("mbart50_xlsum", "mbart-xlsum-2")]
     rows = []
     for metric in PAIRWISE_METRICS:
@@ -1014,6 +1052,7 @@ def plot_pairwise_deltas(run: EvalRun, detailed: pd.DataFrame, out_dir: Path, ma
 
 
 def add_interactive_screenshots(run: EvalRun, out_dir: Path, manifest: Manifest, screenshot_dir: Path) -> None:
+    """Copy interactive visualization screenshots into the output tree."""
     target_dir = ensure_dir(out_dir / run.name / "06_interactive")
     for filename, title, description in INTERACTIVE_SCREENSHOTS:
         src = screenshot_dir / filename
@@ -1026,6 +1065,7 @@ def add_interactive_screenshots(run: EvalRun, out_dir: Path, manifest: Manifest,
 
 
 def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> None:
+    """Generate stability visualizations comparing multiple evaluation runs."""
     if len(runs) < 2:
         return
     language_frames = []
@@ -1117,6 +1157,7 @@ def plot_cross_run(runs: list[EvalRun], out_dir: Path, manifest: Manifest) -> No
 
 
 def generate_for_run(run: EvalRun, out_dir: Path, manifest: Manifest, sample_size: int, screenshot_dir: Path) -> None:
+    """Generate all visualization families for one evaluation run."""
     print(f"[run] {run.name}", flush=True)
     overall = read_overall(run)
     language = read_language(run)
@@ -1144,6 +1185,7 @@ def generate_for_run(run: EvalRun, out_dir: Path, manifest: Manifest, sample_siz
 
 
 def main() -> None:
+    """Parse CLI arguments and generate evaluation visualizations."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-root", type=Path, default=Path("evaluation"), help="Evaluation root directory.")
     parser.add_argument("--output-dir", type=Path, default=Path("evaluation/eval_visualizations"), help="Output directory for generated visuals.")

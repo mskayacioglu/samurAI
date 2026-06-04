@@ -13,6 +13,7 @@ DEFAULT_OUTPUT_DIR = SCRIPT_DIR.parent / "evaluation" / "source_validation_repor
 
 
 def parse_args():
+    """Parse command-line arguments for source pool validation."""
     parser = argparse.ArgumentParser(description="Validate RSS and body quality across sources")
     parser.add_argument("--language", default="__all__", help="Language key or __all__")
     parser.add_argument("--topic", default="__all__", help="Topic filter or __all__")
@@ -31,6 +32,7 @@ def parse_args():
 
 
 def load_runtime():
+    """Import the application runtime and verify required validation helpers."""
     runtime = None
     import_error = None
 
@@ -68,6 +70,7 @@ def load_runtime():
 
 
 def min_article_chars_for_language(base_min: int, language: str) -> int:
+    """Return a language-adjusted minimum article length threshold."""
     language = (language or "").strip().lower()
     if language in {"ja", "ko", "zh"}:
         return max(180, int(base_min * 0.7))
@@ -75,6 +78,7 @@ def min_article_chars_for_language(base_min: int, language: str) -> int:
 
 
 def evaluate_source(runtime, source_key, source_cfg, args):
+    """Evaluate one source for RSS availability and article-body quality."""
     language = source_cfg.get("language", "")
     topic = source_cfg.get("topic", "")
     rss_url = source_cfg.get("rss_url", "")
@@ -164,6 +168,7 @@ def evaluate_source(runtime, source_key, source_cfg, args):
 
 
 def render_markdown_report(results, args):
+    """Render source validation results as a Markdown report."""
     total = len(results)
     passed = sum(1 for r in results if r["pass"])
     failed = total - passed
@@ -226,6 +231,7 @@ def render_markdown_report(results, args):
 
 
 def main():
+    """Run source validation and write JSON and Markdown report artifacts."""
     args = parse_args()
     runtime = load_runtime()
 

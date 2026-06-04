@@ -1,8 +1,12 @@
+"""Background scheduler for periodic news ingestion."""
+
 from datetime import datetime, timezone
 from threading import Event, Lock, Thread
 
 
 class IngestSchedulerService:
+    """Run ingest jobs periodically and expose scheduler state."""
+
     def __init__(self, ingestion_service, logger=None):
         self.ingestion_service = ingestion_service
         self.logger = logger
@@ -15,6 +19,7 @@ class IngestSchedulerService:
         self._last_error = ""
 
     def start(self):
+        """Start the scheduler thread unless it is already running."""
         if self._thread and self._thread.is_alive():
             return
 
@@ -24,15 +29,18 @@ class IngestSchedulerService:
         self._thread.start()
 
     def stop(self):
+        """Signal the scheduler thread to stop and wait briefly for it."""
         self._stop_event.set()
         self._wake_event.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
 
     def trigger_now(self):
+        """Wake the scheduler so it runs an ingest cycle immediately."""
         self._wake_event.set()
 
     def state(self):
+        """Return current scheduler state for the status endpoint."""
         with self._state_lock:
             return {
                 "is_running": self._is_running,
@@ -43,15 +51,18 @@ class IngestSchedulerService:
             }
 
     def _set_running(self, running: bool):
+        """Update the running flag under the scheduler state lock."""
         with self._state_lock:
             self._is_running = running
 
     def _set_tick(self, error: str = ""):
+        """Record the latest scheduler tick and optional error message."""
         with self._state_lock:
             self._last_tick_at = datetime.now(timezone.utc).isoformat()
             self._last_error = error
 
     def _execute_ingest(self):
+        """Run one ingest cycle and report whether the run hit its cap."""
         self._set_running(True)
         try:
             stats = self.ingestion_service.run_once(logger=self.logger)
@@ -73,6 +84,7 @@ class IngestSchedulerService:
             self._set_running(False)
 
     def _run_loop(self):
+        """Run ingest cycles until stopped, respecting interval and wake events."""
         run_now = self.ingestion_service.run_on_start()
         interval = self.ingestion_service.interval_seconds()
         while not self._stop_event.is_set():

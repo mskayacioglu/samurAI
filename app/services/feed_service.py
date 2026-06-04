@@ -1,3 +1,5 @@
+"""Feed read service for API-ready news summaries."""
+
 from datetime import datetime, timezone
 
 from services.catalog_service import CatalogService
@@ -6,6 +8,8 @@ from services.translation_service import TranslationService
 
 
 class FeedService:
+    """Load stored news rows and shape them for API responses."""
+
     def __init__(
         self,
         catalog_service: CatalogService,
@@ -29,6 +33,7 @@ class FeedService:
         include_raw: bool,
         keyword: str = "",
     ):
+        """Return filtered news items with optional output-language translation."""
         source_count = len(selected_sources)
         if source_count == 0:
             source_count = max(1, len([k for k, v in self.catalog_service.sources.items() if v.get("language") == language_key]))

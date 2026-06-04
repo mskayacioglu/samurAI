@@ -1,3 +1,5 @@
+"""Core configuration and helper functions for news fetching and summarization."""
+
 import os
 import re
 import json
@@ -873,6 +875,7 @@ CATEGORY_SOURCES_PER_TOPIC = max(1, int(os.getenv("CATEGORY_SOURCES_PER_TOPIC", 
 
 
 def slugify_key(text: str) -> str:
+    """Return a lowercase underscore key derived from display text."""
     raw = unescape(str(text or "")).replace("\xa0", " ")
     value = re.sub(r"\s+", " ", raw).strip().lower()
     value = re.sub(r"[^a-z0-9]+", "_", value)
@@ -880,6 +883,7 @@ def slugify_key(text: str) -> str:
 
 
 def google_news_locale(language_key: str, country_key: str):
+    """Return Google News locale parameters for a language and country."""
     hint = GOOGLE_NEWS_LOCALE_HINTS.get(language_key)
     if hint:
         return hint["hl"], hint["gl"], hint["ceid"]
@@ -888,11 +892,13 @@ def google_news_locale(language_key: str, country_key: str):
 
 
 def topic_query_term(topic_key: str, language_key: str) -> str:
+    """Return the localized query term for a topic key."""
     lang_terms = TOPIC_QUERY_TERMS.get(language_key, TOPIC_QUERY_TERMS.get("en", {}))
     return lang_terms.get(topic_key, topic_key)
 
 
 def build_google_news_rss_url(query: str, language_key: str, country_key: str) -> str:
+    """Build a Google News RSS search URL for a query and locale."""
     query = re.sub(r"\s+", " ", str(query or "")).strip()
     if not query:
         query = "news"
@@ -905,6 +911,7 @@ def build_google_news_rss_url(query: str, language_key: str, country_key: str) -
 
 
 def build_google_topic_source_extensions():
+    """Build optional Google News topic sources from language seed domains."""
     extensions = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
     for language_key, seeds in LANGUAGE_SOURCE_SEEDS.items():
         if language_key in GOOGLE_TOPIC_DISABLED_LANGUAGES:
@@ -935,6 +942,7 @@ GOOGLE_TOPIC_SOURCE_EXTENSIONS = build_google_topic_source_extensions()
 
 
 def build_google_topic_source_overrides():
+    """Build optional Google News topic sources from per-language overrides."""
     extensions = {lang: [] for lang in LANGUAGE_CONFIGS.keys()}
     for language_key, topics in LANGUAGE_TOPIC_DOMAIN_OVERRIDES.items():
         if language_key in GOOGLE_TOPIC_DISABLED_LANGUAGES:
@@ -962,10 +970,14 @@ GOOGLE_TOPIC_SOURCE_OVERRIDES = build_google_topic_source_overrides()
 
 
 def build_curated_topic_sources():
+    """Build curated topic-specific source aliases from base source pools."""
+
     def norm(value: str) -> str:
+        """Normalize source metadata text for matching."""
         return re.sub(r"\s+", " ", str(value or "")).strip()
 
     def infer_candidate_topic(source: dict) -> str:
+        """Infer a topic key for a source candidate."""
         explicit = norm(source.get("topic", "")).lower()
         if explicit in TOPIC_CONFIGS:
             return explicit
@@ -997,6 +1009,7 @@ def build_curated_topic_sources():
         return "general"
 
     def topic_affinity(source_topic: str, target_topic: str) -> int:
+        """Score how closely a source topic matches a target topic."""
         if source_topic == target_topic:
             return 3
         if source_topic == "general":
@@ -1238,6 +1251,7 @@ QUALITY_GATED_SOURCE_KEYS = {
 
 
 def load_dynamic_quality_gated_keys():
+    """Load source keys that failed the latest dynamic quality report."""
     if not ENABLE_SOURCE_QUALITY_GATE or not ENABLE_DYNAMIC_QUALITY_GATE:
         return set()
 
@@ -1285,6 +1299,7 @@ DYNAMIC_QUALITY_GATED_KEYS = load_dynamic_quality_gated_keys()
 
 
 def infer_topic(source_key: str, source_cfg: dict) -> str:
+    """Infer a source topic from explicit config or source metadata."""
     explicit = re.sub(r"\s+", " ", str(source_cfg.get("topic", "") or "")).strip().lower()
     if explicit in TOPIC_CONFIGS:
         return explicit
@@ -1318,6 +1333,7 @@ def infer_topic(source_key: str, source_cfg: dict) -> str:
 
 
 def infer_country(language_key: str, source_key: str, source_cfg: dict) -> str:
+    """Infer the country key for a source configuration."""
     explicit = re.sub(r"\s+", " ", str(source_cfg.get("country", "") or "")).strip().upper()
     if explicit in COUNTRY_CONFIGS:
         return explicit
@@ -1327,6 +1343,7 @@ def infer_country(language_key: str, source_key: str, source_cfg: dict) -> str:
 
 
 def infer_region(country_key: str, source_cfg: dict) -> str:
+    """Infer the region key for a source from country and config."""
     explicit = re.sub(r"\s+", " ", str(source_cfg.get("region", "") or "")).strip().lower()
     if explicit in REGION_CONFIGS:
         return explicit
@@ -1334,6 +1351,7 @@ def infer_region(country_key: str, source_cfg: dict) -> str:
 
 
 def source_site_key(source_cfg: dict) -> str:
+    """Return a normalized domain key used to deduplicate sources."""
     site_domain = re.sub(r"\s+", " ", str(source_cfg.get("site_domain", "") or "")).strip().lower()
     if site_domain:
         return re.sub(r"^www\d*\.", "", site_domain)
@@ -1350,6 +1368,7 @@ def source_site_key(source_cfg: dict) -> str:
 
 
 def build_news_sources():
+    """Merge, filter, deduplicate, and enrich all configured sources."""
     built = {}
     for lang_key, source_list in TOP_NEWS_SOURCES.items():
         merged_sources = (
@@ -1411,6 +1430,7 @@ NEWS_SOURCES = build_news_sources()
 
 
 def normalize_text(text: str) -> str:
+    """Normalize HTML entities, non-breaking spaces, and repeated whitespace."""
     text = unescape(text or "")
     text = text.replace("\xa0", " ")
     return re.sub(r"\s+", " ", text).strip()
@@ -1624,6 +1644,7 @@ SOURCE_TEXT_CLEANUP_PATTERNS = {
 
 
 def recursive_unescape(text: str, rounds: int = 4) -> str:
+    """Repeatedly HTML-unescape text until it stabilizes or reaches a limit."""
     value = str(text or "")
     for _ in range(max(1, rounds)):
         decoded = unescape(value)
@@ -1634,6 +1655,7 @@ def recursive_unescape(text: str, rounds: int = 4) -> str:
 
 
 def mojibake_count(text: str) -> int:
+    """Count markers that indicate likely mojibake encoding artifacts."""
     text = str(text or "")
     marker_hits = sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
     marker_hits += sum(text.count(marker) for marker in COMMON_UTF8_MOJIBAKE_SEQUENCES)
@@ -1643,6 +1665,7 @@ def mojibake_count(text: str) -> int:
 
 
 def repair_mojibake(text: str) -> str:
+    """Try common byte-decoding repairs for garbled UTF-8 text."""
     text = str(text or "")
     original_bad = mojibake_count(text)
     if original_bad == 0:
@@ -1664,6 +1687,7 @@ def repair_mojibake(text: str) -> str:
 
 
 def normalize_extracted_text(text: str) -> str:
+    """Normalize extracted article text after entity and encoding cleanup."""
     text = recursive_unescape(text)
     text = repair_mojibake(text)
     text = text.replace("\u200b", " ")
@@ -1676,6 +1700,7 @@ CJK_CHAR_PATTERN = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7a3]")
 
 
 def split_sentences(text: str):
+    """Split normalized text into sentence-like chunks."""
     text = normalize_extracted_text(text)
     if not text:
         return []
@@ -1684,10 +1709,12 @@ def split_sentences(text: str):
 
 
 def cjk_char_count(text: str) -> int:
+    """Return the number of CJK characters in text."""
     return len(CJK_CHAR_PATTERN.findall(text or ""))
 
 
 def word_like_count(text: str) -> int:
+    """Estimate word count while accounting for CJK text."""
     text = normalize_extracted_text(text)
     if not text:
         return 0
@@ -1697,6 +1724,7 @@ def word_like_count(text: str) -> int:
 
 
 def looks_like_code_noise(text: str) -> bool:
+    """Return whether text resembles code or serialized page noise."""
     text = str(text or "")
     if not text:
         return False
@@ -1718,6 +1746,7 @@ def looks_like_code_noise(text: str) -> bool:
 
 
 def looks_like_boilerplate(text: str) -> bool:
+    """Return whether text appears to be navigation or boilerplate content."""
     sentence = normalize_extracted_text(text).lower()
     if not sentence:
         return True
@@ -1739,6 +1768,7 @@ def looks_like_boilerplate(text: str) -> bool:
 
 
 def dedupe_text_segments(segments):
+    """Return text segments with near-duplicate neighbors removed."""
     deduped = []
     for segment in segments:
         segment = normalize_extracted_text(segment)
@@ -1751,6 +1781,7 @@ def dedupe_text_segments(segments):
 
 
 def filter_extracted_text_noise(text: str) -> str:
+    """Remove boilerplate, metadata, duplicate, and code-like text fragments."""
     text = normalize_extracted_text(text)
     if not text:
         return ""
@@ -1788,6 +1819,7 @@ def filter_extracted_text_noise(text: str) -> str:
 
 
 def score_article_candidate(text: str) -> float:
+    """Score how likely extracted text is to be useful article body content."""
     text = normalize_extracted_text(text)
     if not text:
         return -10_000.0
@@ -1823,6 +1855,7 @@ def score_article_candidate(text: str) -> float:
 
 
 def pick_best_article_text(candidates):
+    """Select the highest-scoring cleaned article text from candidates."""
     scored = []
     for candidate in candidates:
         cleaned_candidate = filter_extracted_text_noise(candidate)
@@ -1837,11 +1870,13 @@ def pick_best_article_text(candidates):
 
 
 def _extract_charset(content_type: str) -> str:
+    """Extract a charset value from an HTTP Content-Type header."""
     match = re.search(r"charset\s*=\s*([A-Za-z0-9._-]+)", content_type or "", flags=re.IGNORECASE)
     return (match.group(1) if match else "").strip()
 
 
 def _extract_meta_charset(raw_bytes: bytes) -> str:
+    """Extract charset metadata from the beginning of an HTML byte stream."""
     if not raw_bytes:
         return ""
     # Meta tags are ASCII-compatible; parse from a short head slice.
@@ -1858,6 +1893,7 @@ def _extract_meta_charset(raw_bytes: bytes) -> str:
 
 
 def infer_language_from_source_key(source_key: str) -> str:
+    """Infer a language key from source config or source key prefix."""
     key = normalize_text(source_key)
     if not key:
         return ""
@@ -1876,6 +1912,7 @@ def decode_html_bytes(
     hint_encoding: str = "",
     language_key: str = "",
 ) -> str:
+    """Decode HTML bytes using headers, metadata, and language-aware fallbacks."""
     if not raw_bytes:
         return ""
 
@@ -1974,10 +2011,12 @@ def decode_html_bytes(
 
 
 def _word_set(text: str) -> set:
+    """Return normalized significant words from text."""
     return {t for t in re.findall(r"\b[\w'-]+\b", (text or "").lower()) if len(t) > 2}
 
 
 def is_near_duplicate_text(a: str, b: str, threshold: float = 0.82) -> bool:
+    """Return whether two text snippets overlap above a word threshold."""
     a_norm = normalize_text(a).lower()
     b_norm = normalize_text(b).lower()
     if not a_norm or not b_norm:
@@ -1995,6 +2034,7 @@ def is_near_duplicate_text(a: str, b: str, threshold: float = 0.82) -> bool:
 
 
 def contains_datetime_like(text: str) -> bool:
+    """Return whether text contains date or time-like fragments."""
     text = normalize_text(text).lower()
     if not text:
         return False
@@ -2010,6 +2050,7 @@ def contains_datetime_like(text: str) -> bool:
 
 
 def is_metadata_sentence(text: str, language_key: str) -> bool:
+    """Return whether a sentence is likely publish/update metadata."""
     sentence = normalize_text(text).lower()
     if not sentence:
         return True
@@ -2061,6 +2102,7 @@ def is_metadata_sentence(text: str, language_key: str) -> bool:
 
 
 def _source_cleanup_patterns(source_key: str = "", source_url: str = ""):
+    """Return generic and source-specific cleanup regex patterns."""
     patterns = list(GENERIC_ARTICLE_TEXT_CLEANUP_PATTERNS)
     source_key = normalize_text(source_key)
     if source_key and source_key in SOURCE_TEXT_CLEANUP_PATTERNS:
@@ -2076,6 +2118,7 @@ def _source_cleanup_patterns(source_key: str = "", source_url: str = ""):
 
 
 def apply_source_text_cleanup(text: str, source_key: str = "", source_url: str = "") -> str:
+    """Apply source-specific article cleanup rules to text."""
     cleaned = normalize_extracted_text(text)
     if not cleaned:
         return ""
@@ -2086,6 +2129,7 @@ def apply_source_text_cleanup(text: str, source_key: str = "", source_url: str =
 
 
 def strip_leading_metadata_prefix(text: str) -> str:
+    """Remove a leading publish/update metadata prefix from a sentence."""
     sentence = normalize_text(text)
     if not sentence:
         return ""
@@ -2114,6 +2158,7 @@ def clean_article_for_summarization(
     source_key: str = "",
     source_url: str = "",
 ) -> str:
+    """Clean article body text before it is sent to a summarization model."""
     text = apply_source_text_cleanup(text, source_key=source_key, source_url=source_url)
     if not text:
         return ""
@@ -2175,6 +2220,7 @@ def clean_article_for_summarization(
 
 
 def postprocess_summary(summary: str, title: str, language_key: str) -> str:
+    """Clean generated summary text and reject title-only outputs."""
     summary = normalize_text(summary)
     title = normalize_text(title)
     if not summary:
@@ -2200,6 +2246,7 @@ def postprocess_summary(summary: str, title: str, language_key: str) -> str:
 
 
 def strip_html(text: str) -> str:
+    """Remove HTML tags and normalize the remaining text."""
     if not text:
         return ""
     clean = re.sub(r"<[^>]+>", " ", text)
@@ -2207,11 +2254,13 @@ def strip_html(text: str) -> str:
 
 
 def _sanitize_html_fragment(text: str) -> str:
+    """Strip tags from an HTML fragment and normalize its text."""
     text = re.sub(r"<[^>]+>", " ", text or "")
     return normalize_extracted_text(text)
 
 
 def _decode_json_escaped_value(raw_value: str) -> str:
+    """Decode a JSON string fragment into normalized text."""
     raw_value = str(raw_value or "")
     if not raw_value:
         return ""
@@ -2223,6 +2272,7 @@ def _decode_json_escaped_value(raw_value: str) -> str:
 
 
 def _iter_article_bodies_from_json(node):
+    """Yield articleBody string values from nested JSON-LD structures."""
     if isinstance(node, dict):
         for key, value in node.items():
             key_name = str(key or "").strip().lower()
@@ -2235,6 +2285,7 @@ def _iter_article_bodies_from_json(node):
 
 
 def extract_json_ld_article_texts(html_text: str):
+    """Extract article body candidates from JSON-LD script blocks."""
     html_text = str(html_text or "")
     if not html_text:
         return []
@@ -2283,6 +2334,7 @@ def extract_json_ld_article_texts(html_text: str):
 
 
 def _is_link_heavy_paragraph(paragraph_html: str, paragraph_text: str) -> bool:
+    """Return whether a paragraph is mostly anchor text."""
     links = re.findall(r"(?is)<a\b[^>]*>(.*?)</a>", paragraph_html or "")
     if not links:
         return False
@@ -2293,6 +2345,7 @@ def _is_link_heavy_paragraph(paragraph_html: str, paragraph_text: str) -> bool:
 
 
 def extract_paragraphs_from_html_block(html_block: str, min_chars: int = 40):
+    """Extract cleaned paragraph candidates from an HTML block."""
     html_block = re.sub(
         r"(?is)<(script|style|noscript|svg|template|iframe|form|nav|footer|aside)[^>]*>.*?</\1>",
         " ",
@@ -2325,6 +2378,7 @@ def extract_paragraphs_from_html_block(html_block: str, min_chars: int = 40):
 
 
 def build_candidate_from_segments(segments):
+    """Join useful text segments into one article candidate."""
     segments = dedupe_text_segments(segments or [])
     if not segments:
         return ""
@@ -2343,6 +2397,7 @@ def build_candidate_from_segments(segments):
 
 
 def extract_article_text(html_text: str) -> str:
+    """Extract the best article body text from raw HTML."""
     if not html_text:
         return ""
 
@@ -2392,6 +2447,7 @@ def extract_article_text(html_text: str) -> str:
 
 @lru_cache(maxsize=512)
 def fetch_article_text(url: str, source_key: str = "") -> str:
+    """Fetch an article URL and return cleaned article body text."""
     if not url:
         return ""
     headers = {
@@ -2513,6 +2569,7 @@ def fetch_article_text(url: str, source_key: str = "") -> str:
 
 @lru_cache(maxsize=256)
 def fetch_article_image(url: str) -> str:
+    """Fetch an article URL and return the best discovered image URL."""
     if not url:
         return ""
     headers = {
@@ -2560,6 +2617,7 @@ def fetch_article_image(url: str) -> str:
 
 
 def _google_news_base64_id(url: str) -> str:
+    """Extract the encoded Google News article id from a URL."""
     try:
         parsed = urlparse(url or "")
         path = [p for p in (parsed.path or "").split("/") if p]
@@ -2575,6 +2633,7 @@ def _google_news_base64_id(url: str) -> str:
 
 
 def decode_google_news_url(url: str, headers: dict) -> str:
+    """Resolve a Google News wrapper URL to its publisher URL when possible."""
     if requests is None:
         return ""
     base64_id = _google_news_base64_id(url)
@@ -2652,6 +2711,7 @@ def decode_google_news_url(url: str, headers: dict) -> str:
 
 
 def resolve_article_url(url: str, headers: dict) -> str:
+    """Resolve Google News links while leaving publisher URLs unchanged."""
     if not url:
         return url
     try:
@@ -2695,6 +2755,7 @@ def resolve_article_url(url: str, headers: dict) -> str:
 
 
 def extractive_fallback(text: str, max_chars: int = 280, avoid_text: str = "") -> str:
+    """Build a short extractive fallback summary from source sentences."""
     text = re.sub(r"\s+", " ", text or "").strip()
     if not text:
         return ""
@@ -2721,6 +2782,7 @@ def extractive_fallback(text: str, max_chars: int = 280, avoid_text: str = "") -
 
 
 def is_degenerate_summary(summary: str) -> bool:
+    """Return whether a generated summary is too repetitive to trust."""
     summary = normalize_extracted_text(summary)
     tokens = re.findall(r"\b[\w'-]+\b", summary.lower())
     if len(tokens) < 8:
@@ -2739,6 +2801,7 @@ def is_degenerate_summary(summary: str) -> bool:
 
 
 def has_sentence_ending(text: str) -> bool:
+    """Return whether text ends with a sentence-final punctuation mark."""
     text = normalize_text(text)
     if not text:
         return False
@@ -2746,6 +2809,7 @@ def has_sentence_ending(text: str) -> bool:
 
 
 def finalize_summary_text(summary: str, source_text: str) -> str:
+    """Ensure summary text ends cleanly or replace it with a fallback."""
     summary = normalize_text(summary)
     if not summary:
         return ""
@@ -2771,6 +2835,7 @@ def finalize_summary_text(summary: str, source_text: str) -> str:
 
 
 def parse_datetime(date_text: str):
+    """Parse an RSS date string into a UTC datetime object."""
     if not date_text:
         return None
     try:
@@ -2783,6 +2848,7 @@ def parse_datetime(date_text: str):
 
 
 def find_child_text(item: ET.Element, tag_candidates):
+    """Return text from the first matching direct child tag."""
     for tag in tag_candidates:
         el = item.find(tag)
         if el is not None and el.text:
@@ -2791,12 +2857,14 @@ def find_child_text(item: ET.Element, tag_candidates):
 
 
 def _local_name(tag: str) -> str:
+    """Return the lowercase local name for a namespaced XML tag."""
     if not tag:
         return ""
     return tag.rsplit("}", 1)[-1].lower()
 
 
 def find_child_text_anyns(item: ET.Element, name_candidates):
+    """Return text from the first child whose local name matches."""
     wanted = {str(name or "").strip().lower() for name in name_candidates if str(name or "").strip()}
     if not wanted:
         return ""
@@ -2810,6 +2878,7 @@ def find_child_text_anyns(item: ET.Element, name_candidates):
 
 
 def extract_image_url_from_html_fragment(fragment: str) -> str:
+    """Extract the first image URL from an HTML fragment."""
     if not fragment:
         return ""
     m = re.search(r'(?is)<img[^>]+src=["\']([^"\']+)["\']', fragment)
@@ -2819,6 +2888,7 @@ def extract_image_url_from_html_fragment(fragment: str) -> str:
 
 
 def extract_image_url_from_rss_item(item: ET.Element, description: str) -> str:
+    """Extract image media from an RSS item or its description HTML."""
     media_ns = "{http://search.yahoo.com/mrss/}"
 
     for tag in ["enclosure", f"{media_ns}content", f"{media_ns}thumbnail"]:
@@ -2840,6 +2910,7 @@ def extract_image_url_from_rss_item(item: ET.Element, description: str) -> str:
 
 
 def extract_image_from_html(html_text: str) -> str:
+    """Extract a representative image URL from HTML metadata or article body."""
     if not html_text:
         return ""
 
@@ -2860,6 +2931,7 @@ def extract_image_from_html(html_text: str) -> str:
 
 
 def parse_rss_with_feedparser(xml_content: bytes):
+    """Parse RSS/Atom bytes with feedparser and return normalized entries."""
     if feedparser is None:
         return []
     try:
@@ -2917,6 +2989,7 @@ def parse_rss_with_feedparser(xml_content: bytes):
 
 
 def parse_rss(xml_content: bytes):
+    """Parse RSS or Atom XML bytes into normalized feed entries."""
     if not xml_content:
         return []
 
@@ -3017,6 +3090,7 @@ def parse_rss(xml_content: bytes):
 
 
 def derive_site_domain(source_cfg: dict) -> str:
+    """Derive a publisher domain from source metadata or RSS URLs."""
     explicit = normalize_text(source_cfg.get("site_domain", "")).lower()
     if explicit:
         return explicit
@@ -3040,6 +3114,7 @@ def derive_site_domain(source_cfg: dict) -> str:
 
 
 def build_google_fallback_rss_urls(source_key: str, source_cfg: dict):
+    """Build Google News RSS fallback URLs for a failing source feed."""
     language = source_cfg.get("language", "en")
     country = source_cfg.get("country") or LANGUAGE_DEFAULT_COUNTRY.get(language, "US")
     topic = source_cfg.get("topic") or "general"
@@ -3067,6 +3142,7 @@ def build_google_fallback_rss_urls(source_key: str, source_cfg: dict):
 
 
 def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
+    """Fetch and normalize recent news entries from one configured source."""
     rss_urls = source_cfg.get("rss_urls") or [source_cfg["rss_url"]]
     entries = []
 
@@ -3153,6 +3229,7 @@ def fetch_source_news(source_key: str, source_cfg: dict, limit: int):
 
 @lru_cache(maxsize=4)
 def load_summarizer(model_key: str):
+    """Load and cache a local summarization tokenizer and model."""
     model_path = MODEL_PATHS[model_key]
     if not os.path.isdir(model_path):
         raise FileNotFoundError(f"Model path not found: {model_path}")
@@ -3175,6 +3252,7 @@ def load_summarizer(model_key: str):
 
 
 def summarize_text(text: str, model_key: str, language_key: str):
+    """Generate a cleaned abstractive summary for normalized source text."""
     text = (text or "").strip()
     if not text:
         return ""
@@ -3297,6 +3375,7 @@ def summarize_text(text: str, model_key: str, language_key: str):
 
 
 def summarize_text_cached(text: str, model_key: str, language_key: str):
+    """Return a cached summary for identical text, model, and language."""
     text = normalize_text(text)
     if not text:
         return ""
@@ -3323,6 +3402,7 @@ def summarize_text_cached(text: str, model_key: str, language_key: str):
 def summarize_article_cached(
     text: str, model_key: str, language_key: str, article_key: str = ""
 ):
+    """Return a cached article summary using article identity when available."""
     normalized_key = (article_key or "").strip()
     if normalized_key:
         cache_key = (model_key, language_key, normalized_key)
@@ -3345,6 +3425,7 @@ def summarize_article_cached(
 
 @lru_cache(maxsize=1)
 def load_translator():
+    """Load and cache the optional translation tokenizer and model."""
     model_ref = (TRANSLATION_MODEL_REF or "").strip()
     if not model_ref:
         return None, None, None
@@ -3367,6 +3448,7 @@ def load_translator():
 
 
 def translate_text(text: str, source_language_key: str, target_language_key: str) -> str:
+    """Translate text between supported languages when a model is configured."""
     text = normalize_text(text)
     if not text or source_language_key == target_language_key:
         return text
@@ -3415,14 +3497,19 @@ def translate_text(text: str, source_language_key: str, target_language_key: str
 
 
 class nullcontext:
+    """Minimal context manager fallback used when torch is unavailable."""
+
     def __enter__(self):
+        """Enter the no-op context manager and return itself."""
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """Exit the no-op context manager without suppressing exceptions."""
         return False
 
 
 def normalize_filter_value(value: str) -> str:
+    """Normalize filter values and map all-like inputs to an empty filter."""
     normalized = normalize_text(value).lower()
     if normalized in {"", "__all__", "all"}:
         return ""
@@ -3435,6 +3522,7 @@ def filter_sources(
     country_key: str = "",
     region_key: str = "",
 ):
+    """Return news sources that match language, topic, country, and region."""
     topic_key = normalize_filter_value(topic_key)
     country_key = normalize_filter_value(country_key).upper()
     region_key = normalize_filter_value(region_key)
@@ -3460,6 +3548,7 @@ def gather_news(
     country_key: str = "",
     region_key: str = "",
 ):
+    """Gather and sort news entries across selected sources for a language."""
     lang_sources = filter_sources(
         language_key=language_key,
         topic_key=topic_key,

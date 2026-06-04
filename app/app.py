@@ -1,3 +1,5 @@
+"""Application factory and process startup helpers for the Flask news app."""
+
 import atexit
 import logging
 import os
@@ -10,10 +12,12 @@ from routes import register_routes
 
 
 def _is_debug_mode_enabled() -> bool:
+    """Return whether Flask debug mode is enabled from environment flags."""
     return str(os.getenv("FLASK_DEBUG", "0")).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _should_start_workers() -> bool:
+    """Return whether this process should start scheduler background workers."""
     debug_enabled = _is_debug_mode_enabled()
     if not debug_enabled:
         return True
@@ -21,6 +25,7 @@ def _should_start_workers() -> bool:
 
 
 def _configure_db_audit_logger(app: Flask):
+    """Configure the rotating audit log used for database and ingest events."""
     logs_dir = os.path.join(os.path.dirname(__file__), "logs")
     os.makedirs(logs_dir, exist_ok=True)
     log_path = os.path.join(logs_dir, "db_operations.log")
@@ -46,6 +51,7 @@ def _configure_db_audit_logger(app: Flask):
 
 
 def create_app():
+    """Create and configure the Flask application instance."""
     app = Flask(__name__)
     _configure_db_audit_logger(app)
     container = AppContainer()

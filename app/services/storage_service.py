@@ -1,3 +1,5 @@
+"""SQLite persistence service for news items, summaries, and ingest runs."""
+
 import json
 import logging
 import os
@@ -9,6 +11,8 @@ from typing import Any
 
 
 class StorageService:
+    """Persist and query news feed data in a local SQLite database."""
+
     def __init__(self, db_path: str | None = None):
         default_db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "news_data.db")
         self.db_path = db_path or os.getenv("NEWS_DB_PATH", default_db_path)
@@ -17,6 +21,7 @@ class StorageService:
 
     @contextmanager
     def _connect(self):
+        """Open a SQLite connection that commits on successful exit."""
         conn = sqlite3.connect(self.db_path, timeout=30)
         conn.row_factory = sqlite3.Row
         try:
@@ -26,6 +31,7 @@ class StorageService:
             conn.close()
 
     def _initialize(self):
+        """Create required tables and indexes if they do not exist."""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         logger = logging.getLogger("db_audit")
         with self._lock:
@@ -92,9 +98,11 @@ class StorageService:
         logger.info("db_init path=%s", self.db_path)
 
     def _utc_now(self) -> str:
+        """Return the current UTC timestamp in ISO format."""
         return datetime.now(timezone.utc).isoformat()
 
     def upsert_news_item(self, item: dict[str, Any]) -> tuple[int, bool]:
+        """Insert or update one news item and return its id and insert flag."""
         logger = logging.getLogger("db_audit")
         now = self._utc_now()
         published_at = item.get("published_at")
@@ -160,6 +168,7 @@ class StorageService:
                 return int(cursor.lastrowid), True
 
     def upsert_summary(self, news_item_id: int, model_key: str, language_key: str, summary: str):
+        """Insert or update a model summary for a stored news item."""
         logger = logging.getLogger("db_audit")
         now = self._utc_now()
         with self._lock:
@@ -183,6 +192,7 @@ class StorageService:
         )
 
     def get_summary(self, news_item_id: int, model_key: str, language_key: str) -> str:
+        """Return one stored summary or an empty string when it is missing."""
         with self._connect() as conn:
             row = conn.execute(
                 """
@@ -204,6 +214,7 @@ class StorageService:
         selected_sources: list[str],
         limit: int,
     ) -> list[dict[str, Any]]:
+        """Fetch stored news items filtered by language, topic, and sources."""
         clauses = ["language_key = ?"]
         params: list[Any] = [language_key]
 
@@ -246,6 +257,7 @@ class StorageService:
         keyword: str,
         limit: int,
     ) -> list[dict[str, Any]]:
+        """Fetch stored news items joined with a selected model summary."""
         clauses = [
             "ni.language_key = ?",
             "ns.model_key = ?",
@@ -290,6 +302,7 @@ class StorageService:
         return [dict(row) for row in rows]
 
     def start_ingest_run(self, config: dict[str, Any]) -> int:
+        """Persist the start of an ingest run and return its run id."""
         logger = logging.getLogger("db_audit")
         started_at = self._utc_now()
         with self._lock:
@@ -312,6 +325,7 @@ class StorageService:
         stats: dict[str, Any],
         error_message: str = "",
     ):
+        """Persist final status, stats, and errors for an ingest run."""
         logger = logging.getLogger("db_audit")
         with self._lock:
             with self._connect() as conn:
@@ -338,6 +352,7 @@ class StorageService:
         )
 
     def get_latest_ingest_run(self) -> dict[str, Any]:
+        """Return the most recent ingest run with decoded config and stats."""
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT id, started_at, finished_at, status, config_json, stats_json, error_message "

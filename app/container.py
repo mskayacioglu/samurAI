@@ -1,3 +1,5 @@
+"""Dependency container for application services and controllers."""
+
 from controllers.news_controller import NewsController
 from services.article_service import ArticleService
 from services.catalog_service import CatalogService
@@ -11,6 +13,8 @@ from services.translation_service import TranslationService
 
 
 class AppContainer:
+    """Construct and expose the service graph used by the Flask application."""
+
     def __init__(self):
         self.catalog_service = CatalogService()
         self.news_service = NewsService()
@@ -33,6 +37,7 @@ class AppContainer:
         self.ingest_scheduler_service = IngestSchedulerService(self.ingestion_service)
 
     def build_news_controller(self) -> NewsController:
+        """Build a news controller wired to the shared application services."""
         return NewsController(
             catalog_service=self.catalog_service,
             feed_service=self.feed_service,
@@ -41,6 +46,7 @@ class AppContainer:
         )
 
     def start_background_jobs(self, logger=None):
+        """Start enabled background jobs and attach an optional logger."""
         if logger is not None:
             self.ingest_scheduler_service.logger = logger
 
@@ -53,4 +59,5 @@ class AppContainer:
                 )
 
     def shutdown(self):
+        """Stop background services before the process exits."""
         self.ingest_scheduler_service.stop()

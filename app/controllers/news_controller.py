@@ -1,3 +1,5 @@
+"""HTTP controller methods for the news feed and ingest endpoints."""
+
 from flask import jsonify, render_template, request
 
 from core import normalize_filter_value
@@ -11,6 +13,8 @@ MULTILINGUAL_MODEL_KEYS = {"mbart50_xlsum", "mbart-xlsum-2", "mt5-xlsum"}
 
 
 class NewsController:
+    """Handle page rendering and JSON responses for news-related routes."""
+
     def __init__(
         self,
         catalog_service: CatalogService,
@@ -24,6 +28,7 @@ class NewsController:
         self.ingest_scheduler_service = ingest_scheduler_service
 
     def index(self):
+        """Render the main news feed page with catalog and default settings."""
         ingest_model_keys = self.ingestion_service.load_runtime_config().get("model_keys", [])
         models = {
             key: value
@@ -47,6 +52,7 @@ class NewsController:
         )
 
     def api_news(self):
+        """Return filtered news summaries and catalog metadata as JSON."""
         limit = int(request.args.get("limit", 2))
         source = request.args.get("source", "")
         language = request.args.get("language", self.catalog_service.default_language)
@@ -134,6 +140,7 @@ class NewsController:
         )
 
     def api_ingest_status(self):
+        """Return scheduler state and the latest ingest run status as JSON."""
         return jsonify(
             {
                 "scheduler": self.ingest_scheduler_service.state(),
@@ -142,6 +149,7 @@ class NewsController:
         )
 
     def api_ingest_trigger(self):
+        """Queue an immediate ingest run when the scheduler is enabled."""
         if not self.ingestion_service.is_enabled():
             return jsonify({"error": "Ingest scheduler is disabled. Set INGEST_ENABLED=1."}), 400
 
