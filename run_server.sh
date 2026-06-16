@@ -21,4 +21,9 @@ source "$VENV_DIR/bin/activate"
 export INGEST_ENABLED="${INGEST_ENABLED:-1}"
 export INGEST_INTERVAL_SECONDS="${INGEST_INTERVAL_SECONDS:-900}"
 
-python app.py
+PYTHON_BIN="$VENV_DIR/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+  PYTHON_BIN="$VENV_DIR/bin/python3"
+fi
+
+"$PYTHON_BIN" app.py
