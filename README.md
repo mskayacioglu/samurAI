@@ -4,6 +4,10 @@ samurAI is a multilingual news summarization system. It collects recent articles
 
 This GitHub repository contains the application code, evaluation notebooks, model-training notebooks, and project utilities. Large runtime artifacts such as datasets, model checkpoints, Hugging Face caches, SQLite databases, logs, and generated evaluation outputs are intentionally not tracked in Git.
 
+## Preview
+
+![samurAI web interface](docs/assets/ui-preview.png)
+
 ## Features
 
 - RSS-based news collection across 15 languages.
