@@ -1,12 +1,71 @@
 .DS_Store
+Thumbs.db
+
+# Python caches and local environments
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .venv/
+.venv*/
 venv/
+
+# Local application state
 *.db
 *.db-shm
 *.db-wal
+*.log
+app/logs/
+
+# Downloaded datasets, caches, and model artifacts
+data/
+.cache/
+.hf_cache/
+app/.hf_cache/
+*.arrow
+*.safetensors
+*.ckpt
+*.pt
+models/*
+!models/pipelines/
+!models/pipelines/**
+
+# Evaluation outputs
+evaluation/.cache/
+evaluation/.matplotlib_cache/
 evaluation/xlsum_eval_200/
 evaluation/xlsum_eval_full/
+evaluation/xlsum_dataset_analysis/
+evaluation/eval_visualizations/
+evaluation/interactive_screenshots/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.out
+*.nav
+*.snm
+*.synctex.gz
+*.toc
+*.xdv
+*.pdf
+evaluation/eval_report/*.pdf
+
+# Keep platform metadata ignored after any directory unignore rules above.
+**/.DS_Store
+Poster-Latex-Sablon/beamerthemeGSUposter.sty
+Poster-Latex-Sablon/img/gsulogo.png
+Poster-Latex-Sablon/img/interface_web.png
+Poster-Latex-Sablon/img/interface_web_cropped.png
+Poster-Latex-Sablon/img/lena.jpg
+Poster-Latex-Sablon/poster_backup/poster_web_interface.tex
+Poster-Latex-Sablon/poster_paysage.tex
+Poster-Latex-Sablon/poster_web_interface.tex
+Poster-Latex-Sablon/video_kapak-1.png
+Poster-Latex-Sablon/video_kapak.tex
+Poster-Latex-Sablon/video_kapak_final-1.png
+sunum_metni.md
+sunum_metni_fr_b2.md
