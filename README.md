@@ -163,19 +163,3 @@ evaluation/metrics.txt
 ```
 
 Generated reports, prediction files, figures, spreadsheets, datasets, caches, SQLite databases, logs, and model checkpoints are intentionally not committed.
-
-## Git-Ignored Runtime Files
-
-The repository excludes large or machine-local files such as:
-
-```text
-data/
-app/.hf_cache/
-app/news_data.db
-app/logs/
-models/*
-evaluation/xlsum_eval_200/
-evaluation/xlsum_eval_full/
-evaluation/eval_visualizations/
-evaluation/xlsum_dataset_analysis/
-```
