@@ -54,13 +54,13 @@ Expected local paths:
 ```text
 models/bart_large-cnn/
 models/bart_base-cnn/
-models/bart_base-reuters/bart-reuters-best/
+models/bart_base-reuters/
 models/mbart50-xlsum/
 models/mbart-xlsum-2/
 models/mt5-xlsum/
 ```
 
-For non-English sources, use one of the multilingual models:
+For best resumes, use one of the multilingual models:
 
 ```text
 mbart50_xlsum, mbart-xlsum-2, mt5-xlsum
