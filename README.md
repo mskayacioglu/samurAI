@@ -27,6 +27,10 @@ run_server.sh Convenience server launcher
 tail_logs.sh  Convenience log follower
 ```
 
+**Published Models:**  
+[mbart50-xlsum](https://huggingface.co/mskayacioglu/mbart50-xlsum)
+[mbart-xlsum-2](https://huggingface.co/mskayacioglu/mbart-xlsum-2)
+
 ## Setup
 
 Create the Python environment from the `app` directory:
